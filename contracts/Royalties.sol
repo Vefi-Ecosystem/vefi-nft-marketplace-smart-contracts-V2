@@ -16,8 +16,8 @@ contract Royalties is IRoyalties, Context, AccessControl {
   }
 
   constructor(address mod) {
-    _setupRole(adminRole, _msgSender());
-    _setupRole(modRole, mod);
+    _grantRole(adminRole, _msgSender());
+    _grantRole(modRole, mod);
     _setRoleAdmin(modRole, adminRole);
   }
 
