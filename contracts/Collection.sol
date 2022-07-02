@@ -53,7 +53,7 @@ contract Collection is ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownabl
   }
 
   function mint(address _to, string memory _tokenURI) external nonReentrant ownerOrMinter returns (uint256 tokenId) {
-    require(totalSupply() <= maxSupply, 'cannot_exceed_maximum_number_of_items_in_collection');
+    require(totalSupply() < maxSupply, 'cannot_exceed_maximum_number_of_items_in_collection');
     require(block.timestamp >= mintStartTime, 'not_open_for_minting');
     tokenIds.increment();
     tokenId = tokenIds.current();
