@@ -51,7 +51,7 @@ contract Collection is ERC721URIStorage, ERC721Enumerable, Ownable, ReentrancyGu
 
   function burn(uint256 _tokenId) external nonReentrant onlyOwner {
     require(_exists(_tokenId), 'token_must_exist');
-    ERC721._burn(_tokenId);
+    _burn(_tokenId);
 
     currentSupply = currentSupply.sub(1);
   }
