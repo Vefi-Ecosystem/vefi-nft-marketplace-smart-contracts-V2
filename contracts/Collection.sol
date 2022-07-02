@@ -33,7 +33,7 @@ contract Collection is ERC721URIStorage, Ownable, ReentrancyGuard, AccessControl
   ) Ownable() ERC721(name_, symbol_) {
     maxSupply = maxSupply_;
     mintStartTime = mintStartTime_;
-    _setupRole(minterRole, _msgSender());
+    _grantRole(minterRole, _msgSender());
     _transferOwnership(owner_);
   }
 
@@ -57,7 +57,7 @@ contract Collection is ERC721URIStorage, Ownable, ReentrancyGuard, AccessControl
 
   function addMinter(address _minter) external onlyOwner {
     require(!hasRole(minterRole, _minter), 'already_minter');
-    _setupRole(minterRole, _minter);
+    _grantRole(minterRole, _minter);
   }
 
   function removeMinter(address _minter) external onlyOwner {
