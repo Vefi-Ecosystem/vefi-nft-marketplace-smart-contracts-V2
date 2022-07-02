@@ -23,6 +23,8 @@ contract Collection is ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownabl
 
   uint96 public royaltyNumerator = 2000;
 
+  string public image;
+
   modifier ownerOrMinter() {
     require(owner() == _msgSender() || hasRole(minterRole, _msgSender()), 'must_be_owner_or_minter');
     _;
@@ -38,10 +40,12 @@ contract Collection is ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownabl
     string memory symbol_,
     address owner_,
     uint256 maxSupply_,
-    uint256 mintStartTime_
+    uint256 mintStartTime_,
+    string memory image_
   ) Ownable() ERC721(name_, symbol_) {
     maxSupply = maxSupply_;
     mintStartTime = mintStartTime_;
+    image = image_;
     _grantRole(minterRole, _msgSender());
     _grantRole(royaltySetterRole, _msgSender());
     _transferOwnership(owner_);
@@ -109,5 +113,9 @@ contract Collection is ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownabl
       }
     }
     return true;
+  }
+
+  function increaseMaxSupplyBy(uint256 val) external onlyOwner {
+    maxSupply = maxSupply.add(val);
   }
 }
