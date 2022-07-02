@@ -1,13 +1,14 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol';
+import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/utils/Counters.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 
-contract Collection is ERC721URIStorage, Ownable, ReentrancyGuard, AccessControl {
+contract Collection is ERC721URIStorage, ERC721Enumerable, Ownable, ReentrancyGuard, AccessControl {
   using Counters for Counters.Counter;
   using SafeMath for uint256;
 
@@ -50,7 +51,7 @@ contract Collection is ERC721URIStorage, Ownable, ReentrancyGuard, AccessControl
 
   function burn(uint256 _tokenId) external nonReentrant onlyOwner {
     require(_exists(_tokenId), 'token_must_exist');
-    _burn(_tokenId);
+    ERC721._burn(_tokenId);
 
     currentSupply = currentSupply.sub(1);
   }
@@ -65,7 +66,29 @@ contract Collection is ERC721URIStorage, Ownable, ReentrancyGuard, AccessControl
     _revokeRole(minterRole, _minter);
   }
 
-  function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC721) returns (bool) {
+  function supportsInterface(bytes4 interfaceId)
+    public
+    view
+    virtual
+    override(AccessControl, ERC721, ERC721Enumerable)
+    returns (bool)
+  {
     return interfaceId == type(IAccessControl).interfaceId || super.supportsInterface(interfaceId);
+  }
+
+  function _burn(uint256 tokenId) internal virtual override(ERC721, ERC721URIStorage) {
+    return super._burn(tokenId);
+  }
+
+  function _beforeTokenTransfer(
+    address from,
+    address to,
+    uint256 tokenId
+  ) internal virtual override(ERC721, ERC721Enumerable) {
+    return super._beforeTokenTransfer(from, to, tokenId);
+  }
+
+  function tokenURI(uint256 tokenId) public view virtual override(ERC721, ERC721URIStorage) returns (string memory) {
+    return super.tokenURI(tokenId);
   }
 }
