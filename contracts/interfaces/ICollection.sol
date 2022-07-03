@@ -10,4 +10,8 @@ interface ICollection {
   function royaltySetterRole() external view returns (bytes32);
 
   function royaltyNumerator() external view returns (uint96);
+
+  function metadataURI() external view returns (string memory);
+
+  function mint(address to, string memory tokenURI) external returns (uint256);
 }
