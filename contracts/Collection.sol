@@ -8,8 +8,17 @@ import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/utils/Counters.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
+import './interfaces/ICollection.sol';
 
-contract Collection is ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownable, ReentrancyGuard, AccessControl {
+contract Collection is
+  ICollection,
+  ERC721URIStorage,
+  ERC721Enumerable,
+  ERC721Royalty,
+  Ownable,
+  ReentrancyGuard,
+  AccessControl
+{
   using Counters for Counters.Counter;
   using SafeMath for uint256;
 
@@ -23,7 +32,7 @@ contract Collection is ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownabl
 
   uint96 public royaltyNumerator = 2000;
 
-  string public image;
+  string public metadataURI;
 
   modifier ownerOrMinter() {
     require(owner() == _msgSender() || hasRole(minterRole, _msgSender()), 'must_be_owner_or_minter');
@@ -41,11 +50,11 @@ contract Collection is ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownabl
     address owner_,
     uint256 maxSupply_,
     uint256 mintStartTime_,
-    string memory image_
+    string memory metadataURI_
   ) Ownable() ERC721(name_, symbol_) {
     maxSupply = maxSupply_;
     mintStartTime = mintStartTime_;
-    image = image_;
+    metadataURI = metadataURI_;
     _grantRole(minterRole, _msgSender());
     _grantRole(royaltySetterRole, _msgSender());
     _transferOwnership(owner_);
