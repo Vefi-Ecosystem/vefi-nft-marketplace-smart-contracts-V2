@@ -17,7 +17,7 @@ library ActionHelpers {
     require(actionContract.isContract(), 'call_to_non_contract');
     (bool success, bytes memory data) = actionContract.call(
       abi.encodeWithSelector(
-        bytes4(keccak256(bytes('string,string,address,uint256,uint256,string'))),
+        bytes4(keccak256(bytes('_deployCollection(string,string,address,uint256,uint256,string)'))),
         name,
         symbol,
         owner,
@@ -28,5 +28,19 @@ library ActionHelpers {
     );
     require(success, 'low_level_contract_call_failed');
     collectionId = abi.decode(data, (address));
+  }
+
+  function _safeMintNFT(
+    address actionContract,
+    address collection,
+    address to,
+    string memory tokenURI
+  ) internal returns (uint256 nftId) {
+    require(actionContract.isContract(), 'call_to_non_contract');
+    (bool success, bytes memory data) = actionContract.call(
+      abi.encodeWithSelector(bytes4(keccak256(bytes('_mintNFT(address,address,string)'))), collection, to, tokenURI)
+    );
+    require(success, 'low_level_contract_call_failed');
+    nftId = abi.decode(data, (uint256));
   }
 }
