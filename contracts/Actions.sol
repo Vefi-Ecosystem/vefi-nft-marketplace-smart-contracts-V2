@@ -15,8 +15,6 @@ contract Actions {
 
   event NFTCreated(address collection, address to, uint256 tokenId, string tokenURI);
 
-  constructor() {}
-
   function _deployCollection(
     string memory name_,
     string memory symbol_,
