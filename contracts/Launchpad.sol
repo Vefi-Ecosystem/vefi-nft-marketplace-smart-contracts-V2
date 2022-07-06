@@ -4,6 +4,7 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import './libraries/ActionHelpers.sol';
+import './libraries/TransferHelpers.sol';
 
 contract Launchpad is Ownable, AccessControl {
   using SafeMath for uint256;
@@ -115,7 +116,9 @@ contract Launchpad is Ownable, AccessControl {
 
     withdrawableBalance = withdrawableBalance.add(_fee);
 
-    // TO DO: Actual transfer of profit
+    Ownable ownable = Ownable(_launchInfo._collection);
+
+    require(TransferHelpers._safeTransferEther(ownable.owner(), _profit), 'could_not_transfer_ether');
 
     finality[_launchId] = true;
 
