@@ -29,14 +29,19 @@ contract Launchpad is Ownable, AccessControl {
   address action;
   mapping(bytes32 => LaunchInfo) private launches;
   mapping(bytes32 => uint256) private balances;
+  mapping(bytes32 => bool) private finality;
+
+  uint256 private withdrawableBalance;
 
   bytes32 public actionSetterRole = keccak256(abi.encode('ACTION_SETTER_ROLE'));
   bytes32 public launchCreatorRole = keccak256(abi.encode('LAUNCH_CREATOR_ROLE'));
+  bytes32 public finalizerRole = keccak256(abi.encode('FINALIZER_ROLE'));
 
   constructor(address action_) {
     action = action_;
     _grantRole(actionSetterRole, _msgSender());
     _grantRole(launchCreatorRole, _msgSender());
+    _grantRole(finalizerRole, _msgSender());
   }
 
   function createLaunchItem(
@@ -88,7 +93,7 @@ contract Launchpad is Ownable, AccessControl {
   function mint(bytes32 _launchId) external payable returns (uint256 tokenId) {
     LaunchInfo storage _launchInfo = launches[_launchId];
     require(_launchInfo._startTime <= block.timestamp, 'not_time_to_mint');
-    require(_launchInfo._endTime > block.timestamp, 'period_to_mint_on_collection_via_launchpad_is_over');
+    require(msg.value == _launchInfo._price, 'must_pay_exact_price_for_token');
     tokenId = ActionHelpers._safeMintNFT(
       action,
       _launchInfo._collection,
@@ -97,5 +102,23 @@ contract Launchpad is Ownable, AccessControl {
     );
     balances[_launchId] = balances[_launchId].add(msg.value);
     _launchInfo._nextTokenURIIndex = _launchInfo._nextTokenURIIndex.add(1);
+  }
+
+  function finalize(bytes32 _launchId) external returns (bool) {
+    require(hasRole(finalizerRole, _msgSender()), 'only_finalizer');
+    require(!finality[_launchId], 'already_finalized');
+    LaunchInfo storage _launchInfo = launches[_launchId];
+    require(_launchInfo._endTime <= block.timestamp, 'cannot_finalize_now');
+
+    uint256 _fee = balances[_launchId].mul(30) / 100;
+    uint256 _profit = balances[_launchId].sub(_fee);
+
+    withdrawableBalance = withdrawableBalance.add(_fee);
+
+    // TO DO: Actual transfer of profit
+
+    finality[_launchId] = true;
+
+    return true;
   }
 }
