@@ -27,7 +27,7 @@ contract Actions {
       type(Collection).creationCode,
       abi.encode(name_, symbol_, owner_, maxSupply_, mintStartTime_, metadataURI_)
     );
-    bytes32 _salt = keccak256(abi.encode(name_, symbol_, owner_, block.timestamp));
+    bytes32 _salt = keccak256(abi.encode(name_, symbol_, owner_, block.timestamp, address(this)));
 
     assembly {
       collection := create2(0, add(_byteCode, 32), mload(_byteCode), _salt)
