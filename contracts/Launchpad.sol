@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import './libraries/ActionHelpers.sol';
 import './libraries/TransferHelpers.sol';
 
@@ -39,12 +40,14 @@ contract Launchpad is Ownable, AccessControl {
   bytes32 public actionSetterRole = keccak256(abi.encode('ACTION_SETTER_ROLE'));
   bytes32 public launchCreatorRole = keccak256(abi.encode('LAUNCH_CREATOR_ROLE'));
   bytes32 public finalizerRole = keccak256(abi.encode('FINALIZER_ROLE'));
+  bytes32 public withdrawerRole = keccak256(abi.encode('WITHDRAWER_ROLE'));
 
   constructor(address action_) {
     action = action_;
     _grantRole(actionSetterRole, _msgSender());
     _grantRole(launchCreatorRole, _msgSender());
     _grantRole(finalizerRole, _msgSender());
+    _grantRole(withdrawerRole, _msgSender());
   }
 
   function createLaunchItem(
@@ -120,10 +123,47 @@ contract Launchpad is Ownable, AccessControl {
 
     require(TransferHelpers._safeTransferEther(ownable.owner(), _profit), 'could_not_transfer_ether');
     withdrawableBalance = withdrawableBalance.add(_fee);
+    balances[_launchId] = 0;
     finality[_launchId] = true;
 
     emit LaunchItemFinalized(_launchId);
 
     return true;
+  }
+
+  function withdrawEther(address to) external {
+    require(hasRole(withdrawerRole, _msgSender()), 'only_withdrawer');
+    require(TransferHelpers._safeTransferEther(to, withdrawableBalance), 'could_not_transfer_ether');
+    withdrawableBalance = 0;
+  }
+
+  function withdrawERC20(address token, address to) external {
+    require(hasRole(withdrawerRole, _msgSender()), 'only_withdrawer');
+    require(TransferHelpers._safeTransferERC20(token, to, IERC20(token).balanceOf(address(this))));
+  }
+
+  function setAction(address action_) external {
+    require(hasRole(actionSetterRole, _msgSender()), 'only_action_setter');
+    action = action_;
+  }
+
+  function setActionSetter(address setter) external onlyOwner {
+    require(!hasRole(actionSetterRole, setter), 'already_action_setter');
+    _grantRole(actionSetterRole, setter);
+  }
+
+  function revokeActionSetter(address setter) external onlyOwner {
+    require(hasRole(actionSetterRole, setter), 'not_action_setter');
+    _revokeRole(actionSetterRole, setter);
+  }
+
+  function setLaunchCreator(address creator) external onlyOwner {
+    require(!hasRole(launchCreatorRole, creator), 'already_launch_creator');
+    _grantRole(launchCreatorRole, creator);
+  }
+
+  function revokeLaunchCreator(address creator) external onlyOwner {
+    require(hasRole(launchCreatorRole, creator), 'not_launch_creator');
+    _revokeRole(launchCreatorRole, creator);
   }
 }
