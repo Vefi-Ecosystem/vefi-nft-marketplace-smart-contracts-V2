@@ -99,6 +99,7 @@ contract Launchpad is Ownable, AccessControl {
   function mint(bytes32 _launchId) external payable returns (uint256 tokenId) {
     LaunchInfo storage _launchInfo = launches[_launchId];
     require(_launchInfo._startTime <= block.timestamp, 'not_time_to_mint');
+    require(!finality[_launchId], 'already_finalized');
     require(msg.value == _launchInfo._price, 'must_pay_exact_price_for_token');
     tokenId = ActionHelpers._safeMintNFT(
       action,
