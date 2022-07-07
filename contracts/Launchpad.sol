@@ -27,6 +27,8 @@ contract Launchpad is Ownable, AccessControl {
     uint256 _price
   );
 
+  event LaunchItemFinalized(bytes32 _launchId);
+
   address action;
   mapping(bytes32 => LaunchInfo) private launches;
   mapping(bytes32 => uint256) private balances;
@@ -114,13 +116,13 @@ contract Launchpad is Ownable, AccessControl {
     uint256 _fee = balances[_launchId].mul(30) / 100;
     uint256 _profit = balances[_launchId].sub(_fee);
 
-    withdrawableBalance = withdrawableBalance.add(_fee);
-
     Ownable ownable = Ownable(_launchInfo._collection);
 
     require(TransferHelpers._safeTransferEther(ownable.owner(), _profit), 'could_not_transfer_ether');
-
+    withdrawableBalance = withdrawableBalance.add(_fee);
     finality[_launchId] = true;
+
+    emit LaunchItemFinalized(_launchId);
 
     return true;
   }
