@@ -167,4 +167,24 @@ contract Launchpad is Ownable, AccessControl {
     require(hasRole(launchCreatorRole, creator), 'not_launch_creator');
     _revokeRole(launchCreatorRole, creator);
   }
+
+  function setFinalizer(address finalizer) external onlyOwner {
+    require(!hasRole(finalizerRole, finalizer), 'already_finalizer');
+    _grantRole(finalizerRole, finalizer);
+  }
+
+  function revokeFinalizer(address finalizer) external onlyOwner {
+    require(hasRole(finalizerRole, finalizer), 'not_finalizer');
+    _revokeRole(finalizerRole, finalizer);
+  }
+
+  function setWithdrawer(address withdrawer) external onlyOwner {
+    require(!hasRole(withdrawerRole, withdrawer), 'already_withdrawer');
+    _grantRole(withdrawerRole, withdrawer);
+  }
+
+  function revokeWithdrawer(address withdrawer) external onlyOwner {
+    require(hasRole(withdrawerRole, withdrawer), 'not_withdrawer');
+    _revokeRole(withdrawerRole, withdrawer);
+  }
 }
