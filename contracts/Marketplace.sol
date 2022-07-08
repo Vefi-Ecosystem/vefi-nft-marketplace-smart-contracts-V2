@@ -42,13 +42,15 @@ contract MarketPlace is Ownable {
 
   event AuctionItemFinalized(bytes32 auctionId);
 
+  event AuctionItemCancelled(bytes32 auctionId);
+
   mapping(bytes32 => AuctionItem) public _auctions;
   mapping(address => mapping(uint256 => uint256)) public _marketValue;
 
   uint256 public withdrawableBalance;
 
   function computeId(address collection, uint256 tokenId) private pure returns (bytes32) {
-    return keccak256(abi.encodePacked(collection, tokenId));
+    return keccak256(abi.encodePacked(collection, tokenId, address(this), block.timestamp));
   }
 
   function createAuction(
@@ -71,10 +73,10 @@ contract MarketPlace is Ownable {
     emit AuctionItemCreated(auctionId, _msgSender(), collection, startingPrice, address(0), tokenId, endsIn);
   }
 
-  function bidItem(bytes32 auctionId) external payable {
+  function _bidItem(bytes32 auctionId, uint256 amount) private {
     AuctionItem storage auctionItem = _auctions[auctionId];
     require(auctionItem._endsIn > block.timestamp, 'auction_ended_already');
-    require(msg.value > auctionItem._price, 'value_must_be_greater_than_current_price');
+    require(amount > auctionItem._price, 'value_must_be_greater_than_current_price');
 
     if (auctionItem._currentBidder != address(0)) {
       require(
@@ -84,14 +86,33 @@ contract MarketPlace is Ownable {
     }
 
     auctionItem._currentBidder = _msgSender();
-    auctionItem._price = msg.value;
+    auctionItem._price = amount;
 
-    emit AuctionItemUpdated(auctionId, msg.value);
+    emit AuctionItemUpdated(auctionId, amount);
+  }
+
+  function bidItem(bytes32 auctionId) external payable returns (bool) {
+    _bidItem(auctionId, msg.value);
+    return true;
+  }
+
+  function bulkBidItems(bytes32[] auctionIds, uint256[] amounts) external payable returns (bool) {
+    require(auctionIds.length == amounts.length, 'auction_ids_and_amounts_must_be_same_length');
+
+    uint256 totalAmount;
+
+    for (uint256 i = 0; i < amounts.length; i++) totalAmount = totalAmount.add(amounts[i]);
+
+    require(totalAmount == msg.value, 'not_enough_ether_for_bulk_bid');
+
+    for (uint256 i = 0; i < auctionIds.length; i++) _bidItem(auctionIds[i], amounts[i]);
+
+    return true;
   }
 
   function finalizeAuction(bytes32 auctionId) external {
     AuctionItem storage auctionItem = _auctions[auctionId];
-    require(auctionItem._endsIn < block.timestamp, 'cannot_finalize_auction_before_end_time');
+    require(block.timestamp >= auctionItem._endsIn, 'cannot_finalize_auction_before_end_time');
     uint256 val = auctionItem._price;
     uint256 _fee = val.mul(7).div(100);
     uint256 _collectionOwnerFee = _fee.mul(10).div(100);
@@ -113,6 +134,21 @@ contract MarketPlace is Ownable {
     _marketValue[auctionItem._collection][auctionItem._tokenId] = val;
 
     emit AuctionItemFinalized(auctionId);
+
+    delete _auctions[auctionId];
+  }
+
+  function cancelAuction(bytes32 auctionId) external {
+    AuctionItem storage auctionItem = _auctions[auctionId];
+    require(block.timestamp < auctionItem._endsIn, 'cannot_cancel_auction_after_end_time');
+    require(auctionItem._owner == _msgSender(), 'must_be_token_owner');
+    require(
+      TransferHelpers._safeTransferEther(auctionItem._currentBidder, auctionItem._price),
+      'could_not_transfer_ether'
+    );
+    IERC721(auctionItem._collection).safeTransferFrom(address(this), auctionItem._owner, auctionItem._tokenId);
+
+    emit AuctionItemCancelled(auctionId);
 
     delete _auctions[auctionId];
   }
