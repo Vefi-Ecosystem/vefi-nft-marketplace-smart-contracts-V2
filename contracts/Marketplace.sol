@@ -38,6 +38,8 @@ contract MarketPlace is Ownable {
     uint256 endsIn
   );
 
+  event AuctionItemUpdated(bytes32 auctionId, uint256 newPrice);
+
   event AuctionItemFinalized(bytes32 auctionId);
 
   mapping(bytes32 => AuctionItem) public _auctions;
@@ -83,6 +85,8 @@ contract MarketPlace is Ownable {
 
     auctionItem._currentBidder = _msgSender();
     auctionItem._price = msg.value;
+
+    emit AuctionItemUpdated(auctionId, msg.value);
   }
 
   function finalizeAuction(bytes32 auctionId) external {
