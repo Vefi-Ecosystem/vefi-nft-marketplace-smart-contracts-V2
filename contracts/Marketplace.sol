@@ -41,7 +41,7 @@ contract MarketPlace is Ownable {
   event AuctionItemFinalized(bytes32 auctionId);
 
   mapping(bytes32 => AuctionItem) public _auctions;
-  mapping(bytes32 => uint256) public _marketValue;
+  mapping(address => mapping(uint256 => uint256)) public _marketValue;
 
   uint256 public withdrawableBalance;
 
@@ -65,7 +65,7 @@ contract MarketPlace is Ownable {
     IERC721(collection).safeTransferFrom(_msgSender(), address(this), tokenId);
     auctionId = computeId(collection, tokenId);
     _auctions[auctionId] = AuctionItem(_msgSender(), collection, startingPrice, address(0), tokenId, endsIn);
-    _marketValue[auctionId] = startingPrice;
+    _marketValue[collection][tokenId] = startingPrice;
     emit AuctionItemCreated(auctionId, _msgSender(), collection, startingPrice, address(0), tokenId, endsIn);
   }
 
@@ -106,6 +106,7 @@ contract MarketPlace is Ownable {
     IERC721(auctionItem._collection).safeTransferFrom(address(this), auctionItem._currentBidder, auctionItem._tokenId);
 
     withdrawableBalance = withdrawableBalance.add(_splitFee.sub(royaltyValue));
+    _marketValue[auctionItem._collection][auctionItem._tokenId] = val;
 
     emit AuctionItemFinalized(auctionId);
 
