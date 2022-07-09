@@ -1,6 +1,7 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/interfaces/IERC2981.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
@@ -24,8 +25,9 @@ contract MarketPlace is Ownable {
     address _creator;
     address _collection;
     uint256 _price;
-    address _tokenId;
+    uint256 _tokenId;
     uint256 _endsIn;
+    address _tokenOffered;
   }
 
   event AuctionItemCreated(
@@ -44,8 +46,22 @@ contract MarketPlace is Ownable {
 
   event AuctionItemCancelled(bytes32 auctionId);
 
+  event OfferItemCreated(
+    bytes32 offerId,
+    address creator,
+    address collection,
+    uint256 price,
+    uint256 tokenId,
+    uint256 endsIn
+  );
+
+  event OfferItemAccepted(bytes32 offerId);
+
+  event OfferItemRejected(bytes32 offerId);
+
   mapping(bytes32 => AuctionItem) public _auctions;
   mapping(address => mapping(uint256 => uint256)) public _marketValue;
+  mapping(bytes32 => OfferItem) public _offers;
 
   uint256 public withdrawableBalance;
 
@@ -151,5 +167,36 @@ contract MarketPlace is Ownable {
     emit AuctionItemCancelled(auctionId);
 
     delete _auctions[auctionId];
+  }
+
+  function _createOffer(
+    address creator,
+    address collection,
+    uint256 tokenId,
+    uint256 price,
+    uint256 endsIn,
+    address tokenOffered
+  ) private returns (bytes32 offerId) {
+    require(tokenOffered.isContract(), 'call_to_non_contract');
+    require(collection.isContract(), 'non_contract');
+    require(IERC20(tokenOffered).allowance(creator, address(this)) >= price, 'not_enough_allowance');
+    require(price >= _marketValue[collection][tokenId], 'offer_must_be _greater_than_or_equal_to_market_value');
+    require(
+      endsIn > block.timestamp && endsIn.sub(block.timestamp) >= 1 hours,
+      'offer_must_end_at_a_future_time_and_must_last_at_least_an_hour'
+    );
+    offerId = computeId(collection, tokenId);
+    _offers[offerId] = OfferItem(creator, collection, price, tokenId, endsIn, tokenOffered);
+    emit OfferItemCreated(offerId, creator, collection, price, tokenId, endsIn);
+  }
+
+  function createOffer(
+    address collection,
+    uint256 tokenId,
+    uint256 price,
+    uint256 endsIn,
+    address tokenOffered
+  ) external returns (bytes32 offerId) {
+    offerId = _createOffer(_msgSender(), collection, tokenId, price, endsIn, tokenOffered);
   }
 }
