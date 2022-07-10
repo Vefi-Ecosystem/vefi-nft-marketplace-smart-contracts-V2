@@ -196,7 +196,29 @@ contract MarketPlace is Ownable {
     uint256 price,
     uint256 endsIn,
     address tokenOffered
-  ) external returns (bytes32 offerId) {
-    offerId = _createOffer(_msgSender(), collection, tokenId, price, endsIn, tokenOffered);
+  ) external returns (bool) {
+    _createOffer(_msgSender(), collection, tokenId, price, endsIn, tokenOffered);
+    return true;
+  }
+
+  function bulkCreateOffer(
+    address collection,
+    uint256[] tokenIds,
+    uint256[] amounts,
+    uint256 endsIn,
+    address tokenOffered
+  ) external returns (bool) {
+    require(tokenIds.length == amounts.length, 'token_ids_and_amounts_must_be_same_length');
+
+    uint256 totalAmount;
+
+    for (uint256 i = 0; i < amounts.length; i++) totalAmount = totalAmount.add(amounts[i]);
+
+    require(IERC20(tokenOffered).allowance(_msgSender(), address(this)) >= totalAmount, 'not_enough_allowance');
+
+    for (uint256 i = 0; i < tokenIds.length; i++)
+      _createOffer(_msgSender(), collection, tokenIds[i], amounts[i], endsIn, tokenOffered);
+
+    return true;
   }
 }
