@@ -187,7 +187,7 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
     require(tokenOffered.isContract(), 'call_to_non_contract');
     require(collection.isContract(), 'non_contract');
     require(IERC20(tokenOffered).allowance(creator, address(this)) >= price, 'not_enough_allowance');
-    require(price >= _marketValue[collection][tokenId], 'offer_must_be _greater_than_or_equal_to_market_value');
+    require(price >= _marketValue[collection][tokenId], 'offer_must_be_greater_than_or_equal_to_market_value');
     require(
       endsIn > block.timestamp && endsIn.sub(block.timestamp) >= 1 hours,
       'offer_must_end_at_a_future_time_and_must_last_at_least_an_hour'
