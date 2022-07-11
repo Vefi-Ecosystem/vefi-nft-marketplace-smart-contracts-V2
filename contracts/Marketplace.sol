@@ -1,14 +1,16 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/interfaces/IERC2981.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import './libraries/TransferHelpers.sol';
 
-contract MarketPlace is Ownable {
+contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
   using Address for address;
   using SafeMath for uint256;
 
@@ -65,7 +67,7 @@ contract MarketPlace is Ownable {
 
   uint256 public withdrawableBalance;
 
-  function computeId(address collection, uint256 tokenId) private pure returns (bytes32) {
+  function computeId(address collection, uint256 tokenId) private view returns (bytes32) {
     return keccak256(abi.encodePacked(collection, tokenId, address(this), block.timestamp));
   }
 
@@ -107,12 +109,17 @@ contract MarketPlace is Ownable {
     emit AuctionItemUpdated(auctionId, amount);
   }
 
-  function bidItem(bytes32 auctionId) external payable returns (bool) {
+  function bidItem(bytes32 auctionId) external payable nonReentrant returns (bool) {
     _bidItem(auctionId, msg.value);
     return true;
   }
 
-  function bulkBidItems(bytes32[] auctionIds, uint256[] amounts) external payable returns (bool) {
+  function bulkBidItems(bytes32[] memory auctionIds, uint256[] memory amounts)
+    external
+    payable
+    nonReentrant
+    returns (bool)
+  {
     require(auctionIds.length == amounts.length, 'auction_ids_and_amounts_must_be_same_length');
 
     uint256 totalAmount;
@@ -126,7 +133,7 @@ contract MarketPlace is Ownable {
     return true;
   }
 
-  function finalizeAuction(bytes32 auctionId) external {
+  function finalizeAuction(bytes32 auctionId) external nonReentrant {
     AuctionItem storage auctionItem = _auctions[auctionId];
     require(block.timestamp >= auctionItem._endsIn, 'cannot_finalize_auction_before_end_time');
     uint256 val = auctionItem._price;
@@ -154,7 +161,7 @@ contract MarketPlace is Ownable {
     delete _auctions[auctionId];
   }
 
-  function cancelAuction(bytes32 auctionId) external {
+  function cancelAuction(bytes32 auctionId) external nonReentrant {
     AuctionItem storage auctionItem = _auctions[auctionId];
     require(block.timestamp < auctionItem._endsIn, 'cannot_cancel_auction_after_end_time');
     require(auctionItem._owner == _msgSender(), 'must_be_token_owner');
@@ -203,8 +210,8 @@ contract MarketPlace is Ownable {
 
   function bulkCreateOffer(
     address collection,
-    uint256[] tokenIds,
-    uint256[] amounts,
+    uint256[] memory tokenIds,
+    uint256[] memory amounts,
     uint256 endsIn,
     address tokenOffered
   ) external returns (bool) {
@@ -220,5 +227,14 @@ contract MarketPlace is Ownable {
       _createOffer(_msgSender(), collection, tokenIds[i], amounts[i], endsIn, tokenOffered);
 
     return true;
+  }
+
+  function onERC721Received(
+    address,
+    address,
+    uint256,
+    bytes memory
+  ) public virtual override returns (bytes4) {
+    return this.onERC721Received.selector;
   }
 }

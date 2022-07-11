@@ -4,10 +4,11 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import './libraries/ActionHelpers.sol';
 import './libraries/TransferHelpers.sol';
 
-contract Launchpad is Ownable, AccessControl {
+contract Launchpad is Ownable, AccessControl, IERC721Receiver {
   using SafeMath for uint256;
 
   struct LaunchInfo {
@@ -186,5 +187,14 @@ contract Launchpad is Ownable, AccessControl {
   function revokeWithdrawer(address withdrawer) external onlyOwner {
     require(hasRole(withdrawerRole, withdrawer), 'not_withdrawer');
     _revokeRole(withdrawerRole, withdrawer);
+  }
+
+  function onERC721Received(
+    address,
+    address,
+    uint256,
+    bytes memory
+  ) public virtual override returns (bytes4) {
+    return this.onERC721Received.selector;
   }
 }
