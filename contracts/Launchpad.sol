@@ -5,10 +5,11 @@ import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import './libraries/ActionHelpers.sol';
 import './libraries/TransferHelpers.sol';
 
-contract Launchpad is Ownable, AccessControl, IERC721Receiver {
+contract Launchpad is Ownable, AccessControl, IERC721Receiver, ReentrancyGuard {
   using SafeMath for uint256;
 
   struct LaunchInfo {
@@ -97,7 +98,7 @@ contract Launchpad is Ownable, AccessControl, IERC721Receiver {
     );
   }
 
-  function mint(bytes32 _launchId) external payable returns (uint256 tokenId) {
+  function mint(bytes32 _launchId) external payable nonReentrant returns (uint256 tokenId) {
     LaunchInfo storage _launchInfo = launches[_launchId];
     require(_launchInfo._startTime <= block.timestamp, 'not_time_to_mint');
     require(!finality[_launchId], 'already_finalized');
@@ -112,7 +113,7 @@ contract Launchpad is Ownable, AccessControl, IERC721Receiver {
     _launchInfo._nextTokenURIIndex = _launchInfo._nextTokenURIIndex.add(1);
   }
 
-  function finalize(bytes32 _launchId) external returns (bool) {
+  function finalize(bytes32 _launchId) external nonReentrant returns (bool) {
     require(hasRole(finalizerRole, _msgSender()), 'only_finalizer');
     require(!finality[_launchId], 'already_finalized');
     LaunchInfo storage _launchInfo = launches[_launchId];

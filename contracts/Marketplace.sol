@@ -61,9 +61,13 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
 
   event OfferItemRejected(bytes32 offerId);
 
+  event OfferItemCancelled(bytes32 offerId);
+
   mapping(bytes32 => AuctionItem) public _auctions;
   mapping(address => mapping(uint256 => uint256)) public _marketValue;
   mapping(bytes32 => OfferItem) public _offers;
+
+  bytes32[] public _offerIds;
 
   uint256 public withdrawableBalance;
 
@@ -194,6 +198,7 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
     );
     offerId = computeId(collection, tokenId);
     _offers[offerId] = OfferItem(creator, collection, price, tokenId, endsIn, tokenOffered);
+    _offerIds.push(offerId);
     emit OfferItemCreated(offerId, creator, collection, price, tokenId, endsIn);
   }
 
@@ -226,6 +231,32 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
     for (uint256 i = 0; i < tokenIds.length; i++)
       _createOffer(_msgSender(), collection, tokenIds[i], amounts[i], endsIn, tokenOffered);
 
+    return true;
+  }
+
+  function acceptOffer(bytes32 offerId) external returns (bool) {
+    OfferItem storage offerItem = _offers[offerId];
+    require(IERC721(offerItem._collection).ownerOf(offerItem._tokenId) == _msgSender(), 'only_token_owner');
+    require(offerItem._endsIn > block.timestamp, 'offer_ended');
+    require(IERC721(offerItem._collection).isApprovedForAll(_msgSender(), address(this)), 'no_approval_given');
+
+    TransferHelpers._safeTransferFromERC20(offerItem._tokenOffered, address(this), _msgSender(), offerItem._price);
+    IERC721(offerItem._collection).safeTransferFrom(_msgSender(), offerItem._creator, offerItem._tokenId);
+
+    for (uint256 i = 0; i < _offerIds.length; i++) {
+      OfferItem memory innerOfferItem = _offers[_offerIds[i]];
+
+      if (
+        innerOfferItem._collection == offerItem._collection &&
+        innerOfferItem._tokenId == offerItem._tokenId &&
+        _offerIds[i] != offerId
+      ) {
+        delete _offers[_offerIds[i]];
+        emit OfferItemCancelled(_offerIds[i]);
+      }
+    }
+    delete _offers[offerId];
+    emit OfferItemAccepted(offerId);
     return true;
   }
 
