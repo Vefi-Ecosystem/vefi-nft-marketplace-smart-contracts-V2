@@ -160,9 +160,8 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
     withdrawableBalance = withdrawableBalance.add(_splitFee.sub(royaltyValue));
     _marketValue[auctionItem._collection][auctionItem._tokenId] = val;
 
-    emit AuctionItemFinalized(auctionId);
-
     delete _auctions[auctionId];
+    emit AuctionItemFinalized(auctionId);
   }
 
   function cancelAuction(bytes32 auctionId) external nonReentrant {
@@ -174,10 +173,8 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
       'could_not_transfer_ether'
     );
     IERC721(auctionItem._collection).safeTransferFrom(address(this), auctionItem._owner, auctionItem._tokenId);
-
-    emit AuctionItemCancelled(auctionId);
-
     delete _auctions[auctionId];
+    emit AuctionItemCancelled(auctionId);
   }
 
   function _createOffer(
@@ -260,6 +257,22 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
     return true;
   }
 
+  function rejectOffer(bytes32 offerId) external returns (bool) {
+    OfferItem memory offerItem = _offers[offerId];
+    require(IERC721(offerItem._collection).ownerOf(offerItem._tokenId) == _msgSender(), 'only_token_owner');
+    delete _offers[offerId];
+    emit OfferItemRejected(offerId);
+    return true;
+  }
+
+  function cancelOffer(bytes32 offerId) external returns (bool) {
+    OfferItem memory offerItem = _offers[offerId];
+    require(offerItem._creator == _msgSender(), 'only_offer_creator');
+    delete _offers[offerId];
+    emit OfferItemCancelled(offerId);
+    return true;
+  }
+
   function onERC721Received(
     address,
     address,
@@ -268,4 +281,6 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
   ) public virtual override returns (bytes4) {
     return this.onERC721Received.selector;
   }
+
+  receive() external payable {}
 }
