@@ -6,10 +6,11 @@ import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
+import './interfaces/ILaunchpad.sol';
 import './libraries/ActionHelpers.sol';
 import './libraries/TransferHelpers.sol';
 
-contract Launchpad is Ownable, AccessControl, IERC721Receiver, ReentrancyGuard {
+contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, ReentrancyGuard {
   using SafeMath for uint256;
 
   struct LaunchInfo {

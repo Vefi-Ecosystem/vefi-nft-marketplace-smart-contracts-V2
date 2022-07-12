@@ -9,9 +9,10 @@ import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
+import './interfaces/IMarketplace.sol';
 import './libraries/TransferHelpers.sol';
 
-contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, AccessControl {
+contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, IMarketplace, AccessControl {
   using Address for address;
   using SafeMath for uint256;
 
