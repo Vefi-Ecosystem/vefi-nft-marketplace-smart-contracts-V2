@@ -237,7 +237,36 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
     require(offerItem._endsIn > block.timestamp, 'offer_ended');
     require(IERC721(offerItem._collection).isApprovedForAll(_msgSender(), address(this)), 'no_approval_given');
 
-    TransferHelpers._safeTransferFromERC20(offerItem._tokenOffered, address(this), _msgSender(), offerItem._price);
+    uint256 _fee = offerItem._price.mul(9).div(100);
+    uint256 _collectionOwnerFee = _fee.mul(10).div(100);
+    uint256 _splitFee = _fee.sub(_collectionOwnerFee);
+    (address royalty, uint256 royaltyValue) = IERC2981(offerItem._collection).royaltyInfo(
+      offerItem._tokenId,
+      _splitFee
+    );
+
+    Ownable ownable = Ownable(offerItem._collection);
+
+    TransferHelpers._safeTransferFromERC20(
+      offerItem._tokenOffered,
+      offerItem._creator,
+      _msgSender(),
+      offerItem._price.sub(_fee)
+    );
+    TransferHelpers._safeTransferFromERC20(
+      offerItem._tokenOffered,
+      offerItem._creator,
+      ownable.owner(),
+      _collectionOwnerFee
+    );
+    TransferHelpers._safeTransferFromERC20(offerItem._tokenOffered, offerItem._creator, royalty, royaltyValue);
+    TransferHelpers._safeTransferFromERC20(
+      offerItem._tokenOffered,
+      offerItem._creator,
+      address(this),
+      _splitFee.sub(royaltyValue)
+    );
+
     IERC721(offerItem._collection).safeTransferFrom(_msgSender(), offerItem._creator, offerItem._tokenId);
 
     for (uint256 i = 0; i < _offerIds.length; i++) {
