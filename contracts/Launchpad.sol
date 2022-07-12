@@ -37,7 +37,7 @@ contract Launchpad is Ownable, AccessControl, IERC721Receiver, ReentrancyGuard {
   mapping(bytes32 => uint256) private balances;
   mapping(bytes32 => bool) private finality;
 
-  uint256 private withdrawableBalance;
+  uint256 public withdrawableBalance;
 
   bytes32 public actionSetterRole = keccak256(abi.encode('ACTION_SETTER_ROLE'));
   bytes32 public launchCreatorRole = keccak256(abi.encode('LAUNCH_CREATOR_ROLE'));

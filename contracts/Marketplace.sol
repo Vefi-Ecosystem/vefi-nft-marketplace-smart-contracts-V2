@@ -7,10 +7,11 @@ import '@openzeppelin/contracts/interfaces/IERC2981.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import './libraries/TransferHelpers.sol';
 
-contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
+contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, AccessControl {
   using Address for address;
   using SafeMath for uint256;
 
@@ -70,6 +71,12 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
   bytes32[] public _offerIds;
 
   uint256 public withdrawableBalance;
+
+  bytes32 public withdrawerRole = keccak256(abi.encode('WITHDRAWER_ROLE'));
+
+  constructor() {
+    _grantRole(withdrawerRole, _msgSender());
+  }
 
   function computeId(address collection, uint256 tokenId) private view returns (bytes32) {
     return keccak256(abi.encodePacked(collection, tokenId, address(this), block.timestamp));
@@ -300,6 +307,27 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver {
     delete _offers[offerId];
     emit OfferItemCancelled(offerId);
     return true;
+  }
+
+  function withdrawEther(address to) external {
+    require(hasRole(withdrawerRole, _msgSender()), 'only_withdrawer');
+    require(TransferHelpers._safeTransferEther(to, withdrawableBalance), 'could_not_transfer_ether');
+    withdrawableBalance = 0;
+  }
+
+  function withdrawERC20(address token, address to) external {
+    require(hasRole(withdrawerRole, _msgSender()), 'only_withdrawer');
+    require(TransferHelpers._safeTransferERC20(token, to, IERC20(token).balanceOf(address(this))));
+  }
+
+  function setWithdrawer(address withdrawer) external onlyOwner {
+    require(!hasRole(withdrawerRole, withdrawer), 'already_withdrawer');
+    _grantRole(withdrawerRole, withdrawer);
+  }
+
+  function revokeWithdrawer(address withdrawer) external onlyOwner {
+    require(hasRole(withdrawerRole, withdrawer), 'not_withdrawer');
+    _revokeRole(withdrawerRole, withdrawer);
   }
 
   function onERC721Received(
