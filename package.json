@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "rm -rf artifacts && rm -rf cache && npx hardhat test",
     "format": "prettier --write **/**/*.{js,json,sol}"
   },
   "repository": {

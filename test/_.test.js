@@ -23,4 +23,23 @@ describe('_', () => {
     launchpad = await LaunchpadFactory.deploy(action.address);
     launchpad = await launchpad.deployed();
   });
+
+  it('should create launch item', async () => {
+    const [, signer2] = await ethers.getSigners();
+    await expect(
+      launchpad.createLaunchItem(
+        'Test Launch Item',
+        'TLI',
+        signer2.address,
+        3,
+        Math.floor(Date.now() / 1000) + 30,
+        'https://metadata',
+        4,
+        Math.floor(Date.now() / 1000) + 30,
+        10,
+        ['https://metadata', 'https://metadata', 'https://metadata'],
+        ethers.utils.parseEther('0.002')
+      )
+    ).to.emit(launchpad, 'LaunchItemCreated');
+  });
 });
