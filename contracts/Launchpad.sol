@@ -130,7 +130,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     nonReentrant
     returns (uint256[] memory tokenIds)
   {
-    LaunchInfo storage _launchInfo = launches[_launchId];
+    LaunchInfo memory _launchInfo = launches[_launchId];
     uint256 totalAmount = _launchInfo._price.mul(total);
     require(msg.value == totalAmount, 'not_enough_ether_for_bulk_mint');
 
