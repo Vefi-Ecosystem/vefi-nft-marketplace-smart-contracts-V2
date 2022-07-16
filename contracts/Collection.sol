@@ -26,6 +26,7 @@ contract Collection is
 
   uint256 public maxSupply;
   uint256 public mintStartTime;
+  uint256 public maxBalance;
 
   bytes32 public minterRole = keccak256(abi.encode('MINTER_ROLE'));
   bytes32 public royaltySetterRole = keccak256(abi.encode('ROYALTY_SETTER_ROLE'));
@@ -50,11 +51,13 @@ contract Collection is
     address owner_,
     uint256 maxSupply_,
     uint256 mintStartTime_,
-    string memory metadataURI_
+    string memory metadataURI_,
+    uint256 maxBalance_
   ) Ownable() ERC721(name_, symbol_) {
     maxSupply = maxSupply_;
     mintStartTime = mintStartTime_;
     metadataURI = metadataURI_;
+    maxBalance = maxBalance_;
     _grantRole(minterRole, _msgSender());
     _grantRole(royaltySetterRole, _msgSender());
     _transferOwnership(owner_);
@@ -64,6 +67,7 @@ contract Collection is
   function mint(address _to, string memory _tokenURI) external nonReentrant ownerOrMinter returns (uint256 tokenId) {
     require(totalSupply() < maxSupply, 'cannot_exceed_maximum_number_of_items_in_collection');
     require(block.timestamp >= mintStartTime, 'not_open_for_minting');
+    require(balanceOf(_to) < maxBalance, 'cannot_hold_more_than_maximum_balance');
     tokenIds.increment();
     tokenId = tokenIds.current();
     _safeMint(_to, tokenId);
@@ -98,6 +102,15 @@ contract Collection is
 
   function _burn(uint256 tokenId) internal virtual override(ERC721, ERC721URIStorage, ERC721Royalty) {
     return super._burn(tokenId);
+  }
+
+  function _transfer(
+    address from,
+    address to,
+    uint256 tokenId
+  ) internal virtual override(ERC721) {
+    require(balanceOf(to) < maxBalance, 'recipient_already_holds_max_balance_of_tokens_per_address');
+    return super._transfer(from, to, tokenId);
   }
 
   function _beforeTokenTransfer(

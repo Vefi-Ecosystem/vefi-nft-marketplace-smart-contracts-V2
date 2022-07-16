@@ -14,4 +14,6 @@ interface ICollection {
   function metadataURI() external view returns (string memory);
 
   function mint(address to, string memory tokenURI) external returns (uint256);
+
+  function maxBalance() external view returns (uint256);
 }
