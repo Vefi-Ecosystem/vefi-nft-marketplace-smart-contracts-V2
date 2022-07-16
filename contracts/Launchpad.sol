@@ -129,7 +129,16 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     payable
     nonReentrant
     returns (uint256[] memory tokenIds)
-  {}
+  {
+    LaunchInfo storage _launchInfo = launches[_launchId];
+    uint256 totalAmount = _launchInfo._price.mul(total);
+    require(msg.value == totalAmount, 'not_enough_ether_for_bulk_mint');
+
+    for (uint256 i = 0; i < total; i++) {
+      uint256 tokenId = _mint(_launchId, _msgSender(), totalAmount.div(total));
+      tokenIds[i] = tokenId;
+    }
+  }
 
   function finalize(bytes32 _launchId) external nonReentrant returns (bool) {
     require(hasRole(finalizerRole, _msgSender()), 'only_finalizer');
