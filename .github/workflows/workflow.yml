@@ -1,0 +1,20 @@
+name: NFT Marketplace V2 SC Tests
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  nft_marketplace_v2_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['14.x', '16.x']
+    steps:
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+        name: Install dependencies
+      - run: npm install --location=global yarn
+      - run: yarn test
+      

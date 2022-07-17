@@ -8,11 +8,10 @@ import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
-import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import './interfaces/IMarketplace.sol';
 import './libraries/TransferHelpers.sol';
 
-contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, IMarketplace, AccessControl {
+contract MarketPlace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
   using Address for address;
   using SafeMath for uint256;
 
@@ -89,7 +88,7 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, IMarketplace,
     uint256 startingPrice,
     uint256 endsIn
   ) external returns (bytes32 auctionId) {
-    require(collection.isContract(), 'call_to_non_contract');
+    require(collection.isContract());
     require(
       endsIn > block.timestamp && endsIn.sub(block.timestamp) >= 1 hours,
       'auction_must_end_at_a_future_time_and_last_for_at_least_an_hour'
@@ -121,17 +120,12 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, IMarketplace,
     emit AuctionItemUpdated(auctionId, amount);
   }
 
-  function bidItem(bytes32 auctionId) external payable nonReentrant returns (bool) {
+  function bidItem(bytes32 auctionId) external payable returns (bool) {
     _bidItem(auctionId, msg.value);
     return true;
   }
 
-  function bulkBidItems(bytes32[] memory auctionIds, uint256[] memory amounts)
-    external
-    payable
-    nonReentrant
-    returns (bool)
-  {
+  function bulkBidItems(bytes32[] memory auctionIds, uint256[] memory amounts) external payable returns (bool) {
     require(auctionIds.length == amounts.length, 'auction_ids_and_amounts_must_be_same_length');
 
     uint256 totalAmount;
@@ -145,7 +139,7 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, IMarketplace,
     return true;
   }
 
-  function finalizeAuction(bytes32 auctionId) external nonReentrant {
+  function finalizeAuction(bytes32 auctionId) external {
     AuctionItem storage auctionItem = _auctions[auctionId];
     require(block.timestamp >= auctionItem._endsIn, 'cannot_finalize_auction_before_end_time');
     uint256 val = auctionItem._price;
@@ -159,9 +153,9 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, IMarketplace,
 
     Ownable ownable = Ownable(auctionItem._collection);
 
-    require(TransferHelpers._safeTransferEther(auctionItem._owner, val.sub(_fee)), 'could_not_transfer_ether');
-    require(TransferHelpers._safeTransferEther(ownable.owner(), _collectionOwnerFee), 'could_not_transfer_ether');
-    require(TransferHelpers._safeTransferEther(royalty, royaltyValue), 'could_not_transfer_ether');
+    require(TransferHelpers._safeTransferEther(auctionItem._owner, val.sub(_fee)));
+    require(TransferHelpers._safeTransferEther(ownable.owner(), _collectionOwnerFee));
+    require(TransferHelpers._safeTransferEther(royalty, royaltyValue));
 
     IERC721(auctionItem._collection).safeTransferFrom(address(this), auctionItem._currentBidder, auctionItem._tokenId);
 
@@ -172,14 +166,11 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, IMarketplace,
     emit AuctionItemFinalized(auctionId);
   }
 
-  function cancelAuction(bytes32 auctionId) external nonReentrant {
+  function cancelAuction(bytes32 auctionId) external {
     AuctionItem storage auctionItem = _auctions[auctionId];
     require(block.timestamp < auctionItem._endsIn, 'cannot_cancel_auction_after_end_time');
     require(auctionItem._owner == _msgSender(), 'must_be_token_owner');
-    require(
-      TransferHelpers._safeTransferEther(auctionItem._currentBidder, auctionItem._price),
-      'could_not_transfer_ether'
-    );
+    require(TransferHelpers._safeTransferEther(auctionItem._currentBidder, auctionItem._price));
     IERC721(auctionItem._collection).safeTransferFrom(address(this), auctionItem._owner, auctionItem._tokenId);
     delete _auctions[auctionId];
     emit AuctionItemCancelled(auctionId);
@@ -193,8 +184,8 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, IMarketplace,
     uint256 endsIn,
     address tokenOffered
   ) private returns (bytes32 offerId) {
-    require(tokenOffered.isContract(), 'call_to_non_contract');
-    require(collection.isContract(), 'non_contract');
+    require(tokenOffered.isContract());
+    require(collection.isContract());
     require(IERC20(tokenOffered).allowance(creator, address(this)) >= price, 'not_enough_allowance');
     require(price >= _marketValue[collection][tokenId], 'offer_must_be_greater_than_or_equal_to_market_value');
     require(
@@ -312,7 +303,7 @@ contract MarketPlace is Ownable, ReentrancyGuard, IERC721Receiver, IMarketplace,
 
   function withdrawEther(address to) external {
     require(hasRole(withdrawerRole, _msgSender()), 'only_withdrawer');
-    require(TransferHelpers._safeTransferEther(to, withdrawableBalance), 'could_not_transfer_ether');
+    require(TransferHelpers._safeTransferEther(to, withdrawableBalance));
     withdrawableBalance = 0;
   }
 

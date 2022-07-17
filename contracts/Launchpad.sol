@@ -44,6 +44,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   bytes32 public launchCreatorRole = keccak256(abi.encode('LAUNCH_CREATOR_ROLE'));
   bytes32 public finalizerRole = keccak256(abi.encode('FINALIZER_ROLE'));
   bytes32 public withdrawerRole = keccak256(abi.encode('WITHDRAWER_ROLE'));
+  bytes32[] public launchIds;
 
   constructor(address action_) {
     action = action_;
@@ -60,6 +61,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     uint256 maxSupply,
     uint256 mintStartTime,
     string memory metadataURI,
+    uint256 maxBalance_,
     uint256 launchStartTime,
     int256 daysForLaunch,
     string[] memory tokenURIs,
@@ -75,7 +77,8 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
       owner_,
       maxSupply,
       mintStartTime,
-      metadataURI
+      metadataURI,
+      maxBalance_
     );
     bytes32 _launchId = keccak256(
       abi.encodePacked(_collection, name, symbol, owner_, mintStartTime, metadataURI, address(this))
@@ -89,6 +92,8 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
       0
     );
 
+    launchIds.push(_launchId);
+
     emit LaunchItemCreated(
       _launchId,
       _collection,
@@ -99,19 +104,43 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     );
   }
 
-  function mint(bytes32 _launchId) external payable nonReentrant returns (uint256 tokenId) {
+  function _mint(
+    bytes32 _launchId,
+    address _for,
+    uint256 amount
+  ) private returns (uint256 tokenId) {
     LaunchInfo storage _launchInfo = launches[_launchId];
     require(_launchInfo._startTime <= block.timestamp, 'not_time_to_mint');
     require(!finality[_launchId], 'already_finalized');
-    require(msg.value == _launchInfo._price, 'must_pay_exact_price_for_token');
+    require(amount == _launchInfo._price, 'must_pay_exact_price_for_token');
     tokenId = ActionHelpers._safeMintNFT(
       action,
       _launchInfo._collection,
-      _msgSender(),
+      _for,
       _launchInfo._tokenURIs[_launchInfo._nextTokenURIIndex]
     );
-    balances[_launchId] = balances[_launchId].add(msg.value);
+    balances[_launchId] = balances[_launchId].add(amount);
     _launchInfo._nextTokenURIIndex = _launchInfo._nextTokenURIIndex.add(1);
+  }
+
+  function mint(bytes32 _launchId) external payable nonReentrant returns (uint256 tokenId) {
+    tokenId = _mint(_launchId, _msgSender(), msg.value);
+  }
+
+  function bulkMint(bytes32 _launchId, uint256 total)
+    external
+    payable
+    nonReentrant
+    returns (uint256[] memory tokenIds)
+  {
+    LaunchInfo memory _launchInfo = launches[_launchId];
+    uint256 totalAmount = _launchInfo._price.mul(total);
+    require(msg.value == totalAmount, 'not_enough_ether_for_bulk_mint');
+
+    for (uint256 i = 0; i < total; i++) {
+      uint256 tokenId = _mint(_launchId, _msgSender(), totalAmount.div(total));
+      tokenIds[i] = tokenId;
+    }
   }
 
   function finalize(bytes32 _launchId) external nonReentrant returns (bool) {

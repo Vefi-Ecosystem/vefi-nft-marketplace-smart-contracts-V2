@@ -12,18 +12,20 @@ library ActionHelpers {
     address owner,
     uint256 maxSupply,
     uint256 mintStartTime,
-    string memory metadataURI
+    string memory metadataURI,
+    uint256 maxBalance
   ) internal returns (address collectionId) {
     require(actionContract.isContract(), 'call_to_non_contract');
     (bool success, bytes memory data) = actionContract.call(
       abi.encodeWithSelector(
-        bytes4(keccak256(bytes('_deployCollection(string,string,address,uint256,uint256,string)'))),
+        bytes4(keccak256(bytes('_deployCollection(string,string,address,uint256,uint256,string,uint256)'))),
         name,
         symbol,
         owner,
         maxSupply,
         mintStartTime,
-        metadataURI
+        metadataURI,
+        maxBalance
       )
     );
     require(success, 'low_level_contract_call_failed');

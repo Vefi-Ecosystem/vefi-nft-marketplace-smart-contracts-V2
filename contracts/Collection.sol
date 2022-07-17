@@ -6,19 +6,10 @@ import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/utils/Counters.sol';
-import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import './interfaces/ICollection.sol';
 
-contract Collection is
-  ICollection,
-  ERC721URIStorage,
-  ERC721Enumerable,
-  ERC721Royalty,
-  Ownable,
-  ReentrancyGuard,
-  AccessControl
-{
+contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownable, AccessControl {
   using Counters for Counters.Counter;
   using SafeMath for uint256;
 
@@ -26,6 +17,7 @@ contract Collection is
 
   uint256 public maxSupply;
   uint256 public mintStartTime;
+  uint256 public maxBalance;
 
   bytes32 public minterRole = keccak256(abi.encode('MINTER_ROLE'));
   bytes32 public royaltySetterRole = keccak256(abi.encode('ROYALTY_SETTER_ROLE'));
@@ -35,12 +27,12 @@ contract Collection is
   string public metadataURI;
 
   modifier ownerOrMinter() {
-    require(owner() == _msgSender() || hasRole(minterRole, _msgSender()), 'must_be_owner_or_minter');
+    require(owner() == _msgSender() || hasRole(minterRole, _msgSender()));
     _;
   }
 
   modifier onlyRoyaltySetter() {
-    require(hasRole(royaltySetterRole, _msgSender()), 'only_royalty_setter');
+    require(hasRole(royaltySetterRole, _msgSender()));
     _;
   }
 
@@ -50,20 +42,23 @@ contract Collection is
     address owner_,
     uint256 maxSupply_,
     uint256 mintStartTime_,
-    string memory metadataURI_
+    string memory metadataURI_,
+    uint256 maxBalance_
   ) Ownable() ERC721(name_, symbol_) {
     maxSupply = maxSupply_;
     mintStartTime = mintStartTime_;
     metadataURI = metadataURI_;
+    maxBalance = maxBalance_;
     _grantRole(minterRole, _msgSender());
     _grantRole(royaltySetterRole, _msgSender());
     _transferOwnership(owner_);
     _grantRole(royaltySetterRole, owner_);
   }
 
-  function mint(address _to, string memory _tokenURI) external nonReentrant ownerOrMinter returns (uint256 tokenId) {
-    require(totalSupply() < maxSupply, 'cannot_exceed_maximum_number_of_items_in_collection');
-    require(block.timestamp >= mintStartTime, 'not_open_for_minting');
+  function mint(address _to, string memory _tokenURI) external ownerOrMinter returns (uint256 tokenId) {
+    require(totalSupply() < maxSupply);
+    require(block.timestamp >= mintStartTime);
+    require(balanceOf(_to) < maxBalance);
     tokenIds.increment();
     tokenId = tokenIds.current();
     _safeMint(_to, tokenId);
@@ -71,18 +66,18 @@ contract Collection is
     _setTokenRoyalty(tokenId, _to, royaltyNumerator);
   }
 
-  function burn(uint256 _tokenId) external nonReentrant onlyOwner {
-    require(_exists(_tokenId), 'token_must_exist');
+  function burn(uint256 _tokenId) external onlyOwner {
+    require(_exists(_tokenId));
     _burn(_tokenId);
   }
 
   function addMinter(address _minter) external onlyOwner {
-    require(!hasRole(minterRole, _minter), 'already_minter');
+    require(!hasRole(minterRole, _minter));
     _grantRole(minterRole, _minter);
   }
 
   function removeMinter(address _minter) external onlyOwner {
-    require(hasRole(minterRole, _minter), 'not_a_minter');
+    require(hasRole(minterRole, _minter));
     _revokeRole(minterRole, _minter);
   }
 
@@ -100,6 +95,15 @@ contract Collection is
     return super._burn(tokenId);
   }
 
+  function _transfer(
+    address from,
+    address to,
+    uint256 tokenId
+  ) internal virtual override(ERC721) {
+    require(balanceOf(to) < maxBalance);
+    return super._transfer(from, to, tokenId);
+  }
+
   function _beforeTokenTransfer(
     address from,
     address to,
@@ -110,18 +114,6 @@ contract Collection is
 
   function tokenURI(uint256 tokenId) public view virtual override(ERC721, ERC721URIStorage) returns (string memory) {
     return super.tokenURI(tokenId);
-  }
-
-  function setRoyalty(uint96 royalty) external onlyRoyaltySetter returns (bool) {
-    royaltyNumerator = royalty;
-
-    if (totalSupply() > 0) {
-      for (uint256 i = 0; i < totalSupply(); i++) {
-        (address receiver, ) = royaltyInfo(tokenByIndex(i), 0);
-        _setTokenRoyalty(tokenByIndex(i), receiver, royalty);
-      }
-    }
-    return true;
   }
 
   function increaseMaxSupplyBy(uint256 val) external onlyOwner {
