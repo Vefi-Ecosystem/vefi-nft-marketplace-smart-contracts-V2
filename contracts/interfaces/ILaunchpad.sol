@@ -10,4 +10,6 @@ interface ILaunchpad {
   function withdrawerRole() external view returns (bytes32);
 
   function finalizerRole() external view returns (bytes32);
+
+  function launchIds(uint256) external view returns (bytes32);
 }

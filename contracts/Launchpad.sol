@@ -44,6 +44,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   bytes32 public launchCreatorRole = keccak256(abi.encode('LAUNCH_CREATOR_ROLE'));
   bytes32 public finalizerRole = keccak256(abi.encode('FINALIZER_ROLE'));
   bytes32 public withdrawerRole = keccak256(abi.encode('WITHDRAWER_ROLE'));
+  bytes32[] public launchIds;
 
   constructor(address action_) {
     action = action_;
@@ -90,6 +91,8 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
       _pricePerToken,
       0
     );
+
+    launchIds.push(_launchId);
 
     emit LaunchItemCreated(
       _launchId,
