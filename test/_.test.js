@@ -47,19 +47,14 @@ describe('_', () => {
   it('should throw error when it is not time to mint', async () => {
     const [, , signer3] = await ethers.getSigners();
     const launchId = await launchpad.launchIds(0);
-    await expect(
-      launchpad.connect(signer3).mint(launchId, { value: ethers.utils.parseEther('0.002') })
-    ).to.be.revertedWith('not_time_to_mint');
+    await expect(launchpad.connect(signer3).mint(launchId, { value: ethers.utils.parseEther('0.002') })).to.be.revertedWith('not_time_to_mint');
   });
 
   it('should mint an NFT', async () => {
     const [, , signer3] = await ethers.getSigners();
     const launchId = await launchpad.launchIds(0);
     await time.increase(time.duration.seconds(30));
-    await expect(launchpad.connect(signer3).mint(launchId, { value: ethers.utils.parseEther('0.002') })).to.emit(
-      action,
-      'NFTCreated'
-    );
+    await expect(launchpad.connect(signer3).mint(launchId, { value: ethers.utils.parseEther('0.002') })).to.emit(action, 'NFTCreated');
   });
 
   it('should not permit non-finalizer to finalize', async () => {
@@ -78,9 +73,7 @@ describe('_', () => {
     const [signer1] = await ethers.getSigners();
     const launchId = await launchpad.launchIds(0);
     await time.increase(time.duration.days(10));
-    await expect(launchpad.connect(signer1).finalize(launchId))
-      .to.emit(launchpad, 'LaunchItemFinalized')
-      .withArgs(launchId);
+    await expect(launchpad.connect(signer1).finalize(launchId)).to.emit(launchpad, 'LaunchItemFinalized').withArgs(launchId);
   });
 
   it('should only permit account with withdrawer role to withdraw ether', async () => {
@@ -91,9 +84,6 @@ describe('_', () => {
   it('should allow withdrawal of ether', async () => {
     const [signer1, signer2] = await ethers.getSigners();
     const withdrawableBalance = await launchpad.withdrawableBalance();
-    await expect(await launchpad.connect(signer1).withdrawEther(signer2.address)).to.changeEtherBalance(
-      signer2,
-      withdrawableBalance
-    );
+    await expect(await launchpad.connect(signer1).withdrawEther(signer2.address)).to.changeEtherBalance(signer2, withdrawableBalance);
   });
 });

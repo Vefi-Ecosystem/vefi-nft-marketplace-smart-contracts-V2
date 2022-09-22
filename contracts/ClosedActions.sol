@@ -27,16 +27,7 @@ contract ClosedActions is Ownable, AccessControl {
     uint256 maxBalance
   ) external payable returns (address collectionId) {
     require(msg.value >= fee, 'fee');
-    collectionId = ActionHelpers._safeDeployCollection(
-      action,
-      name,
-      symbol,
-      _msgSender(),
-      maxSupply,
-      mintStartTime,
-      metadataURI,
-      maxBalance
-    );
+    collectionId = ActionHelpers._safeDeployCollection(action, name, symbol, _msgSender(), maxSupply, mintStartTime, metadataURI, maxBalance);
   }
 
   function getFee() external view returns (uint256) {

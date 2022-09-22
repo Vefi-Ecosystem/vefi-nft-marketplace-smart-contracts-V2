@@ -11,10 +11,7 @@ contract BridgeActions {
     string memory metadataURI,
     address wrapped
   ) private returns (address collectionId) {
-    bytes memory bytecode = abi.encodePacked(
-      type(WrappedCollection).creationCode,
-      abi.encode(name, symbol, metadataURI)
-    );
+    bytes memory bytecode = abi.encodePacked(type(WrappedCollection).creationCode, abi.encode(name, symbol, metadataURI));
     bytes32 salt = keccak256(abi.encodePacked(name, symbol, wrapped, block.timestamp));
     assembly {
       collectionId := create2(0, add(bytecode, 32), mload(bytecode), salt)

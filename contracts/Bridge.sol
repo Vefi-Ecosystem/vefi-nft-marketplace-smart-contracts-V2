@@ -30,15 +30,7 @@ contract Bridge is Ownable, IERC721Receiver {
     uint256 nonce,
     string tokenURI
   );
-  event Redeemed(
-    uint256 destinationChain,
-    bytes signature,
-    address collection,
-    uint256 tokenId,
-    address signer,
-    uint256 nonce,
-    string tokenURI
-  );
+  event Redeemed(uint256 destinationChain, bytes signature, address collection, uint256 tokenId, address signer, uint256 nonce, string tokenURI);
 
   constructor(
     uint256 _chainId,

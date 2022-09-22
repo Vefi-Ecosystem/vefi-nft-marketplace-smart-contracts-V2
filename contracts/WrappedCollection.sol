@@ -68,13 +68,7 @@ contract WrappedCollection is ERC721URIStorage, ERC721Enumerable, ERC721Royalty,
     _revokeRole(minterRole, _minter);
   }
 
-  function supportsInterface(bytes4 interfaceId)
-    public
-    view
-    virtual
-    override(AccessControl, ERC721, ERC721Enumerable, ERC721Royalty)
-    returns (bool)
-  {
+  function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC721, ERC721Enumerable, ERC721Royalty) returns (bool) {
     return interfaceId == type(IAccessControl).interfaceId || super.supportsInterface(interfaceId);
   }
 

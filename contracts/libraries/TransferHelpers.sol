@@ -27,14 +27,7 @@ library TransferHelpers {
     uint256 amount
   ) internal returns (bool success) {
     require(token.isContract(), 'call_to_non_contract');
-    (success, ) = token.call(
-      abi.encodeWithSelector(
-        bytes4(keccak256(bytes('transferFrom(address,address,uint256)'))),
-        spender,
-        recipient,
-        amount
-      )
-    );
+    (success, ) = token.call(abi.encodeWithSelector(bytes4(keccak256(bytes('transferFrom(address,address,uint256)'))), spender, recipient, amount));
     require(success, 'low_level_contract_call_failed');
   }
 }
