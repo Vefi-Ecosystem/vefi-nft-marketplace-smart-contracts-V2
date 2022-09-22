@@ -228,4 +228,8 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   ) public virtual override returns (bytes4) {
     return this.onERC721Received.selector;
   }
+
+  receive() external payable {
+    withdrawableBalance = withdrawableBalance.add(msg.value);
+  }
 }

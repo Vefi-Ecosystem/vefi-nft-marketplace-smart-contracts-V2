@@ -331,5 +331,7 @@ contract MarketPlace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
     return this.onERC721Received.selector;
   }
 
-  receive() external payable {}
+  receive() external payable {
+    withdrawableBalance = withdrawableBalance.add(msg.value);
+  }
 }

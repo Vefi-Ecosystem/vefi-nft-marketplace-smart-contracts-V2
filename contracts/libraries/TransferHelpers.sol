@@ -6,7 +6,7 @@ library TransferHelpers {
   using Address for address;
 
   function _safeTransferEther(address to, uint256 amount) internal returns (bool success) {
-    (success, ) = to.call{value: amount}(new bytes(0));
+    (success, ) = to.call{value: amount}('');
     require(success, 'failed to transfer ether');
   }
 
