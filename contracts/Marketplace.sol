@@ -11,27 +11,9 @@ import '@openzeppelin/contracts/access/AccessControl.sol';
 import './interfaces/IMarketplace.sol';
 import './libraries/TransferHelpers.sol';
 
-contract MarketPlace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
+contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
   using Address for address;
   using SafeMath for uint256;
-
-  struct AuctionItem {
-    address _owner;
-    address _collection;
-    uint256 _price;
-    address _currentBidder;
-    uint256 _tokenId;
-    uint256 _endsIn;
-  }
-
-  struct OfferItem {
-    address _creator;
-    address _collection;
-    uint256 _price;
-    uint256 _tokenId;
-    uint256 _endsIn;
-    address _tokenOffered;
-  }
 
   event AuctionItemCreated(
     bytes32 auctionId,
@@ -62,6 +44,7 @@ contract MarketPlace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
   mapping(bytes32 => OfferItem) public _offers;
 
   bytes32[] public _offerIds;
+  bytes32[] public auctionIDs;
 
   uint256 public withdrawableBalance;
 
@@ -88,6 +71,7 @@ contract MarketPlace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
     IERC721(collection).safeTransferFrom(_msgSender(), address(this), tokenId);
     auctionId = computeId(collection, tokenId);
     _auctions[auctionId] = AuctionItem(_msgSender(), collection, startingPrice, address(0), tokenId, endsIn);
+    auctionIDs.push(auctionId);
     _marketValue[collection][tokenId] = startingPrice;
     emit AuctionItemCreated(auctionId, _msgSender(), collection, startingPrice, address(0), tokenId, endsIn);
   }
@@ -95,7 +79,7 @@ contract MarketPlace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
   function _bidItem(bytes32 auctionId, uint256 amount) private {
     AuctionItem storage auctionItem = _auctions[auctionId];
     require(auctionItem._endsIn > block.timestamp, 'auction_ended_already');
-    require(amount > auctionItem._price, 'value_must_be_greater_than_current_price');
+    require(amount >= auctionItem._price, 'value_must_be_greater_than_or_equal_to_current_price');
 
     if (auctionItem._currentBidder != address(0)) {
       require(TransferHelpers._safeTransferEther(auctionItem._currentBidder, auctionItem._price), 'could_not_transfer_ether');
@@ -153,7 +137,7 @@ contract MarketPlace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
   function cancelAuction(bytes32 auctionId) external {
     AuctionItem storage auctionItem = _auctions[auctionId];
     require(block.timestamp < auctionItem._endsIn, 'cannot_cancel_auction_after_end_time');
-    require(auctionItem._owner == _msgSender(), 'must_be_token_owner');
+    require(auctionItem._owner == _msgSender());
     require(TransferHelpers._safeTransferEther(auctionItem._currentBidder, auctionItem._price));
     IERC721(auctionItem._collection).safeTransferFrom(address(this), auctionItem._owner, auctionItem._tokenId);
     delete _auctions[auctionId];
@@ -278,6 +262,10 @@ contract MarketPlace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
   function revokeWithdrawer(address withdrawer) external onlyOwner {
     require(hasRole(withdrawerRole, withdrawer), 'not_withdrawer');
     _revokeRole(withdrawerRole, withdrawer);
+  }
+
+  function getMarketValue(address collection, uint256 tokenId) external view returns (uint256) {
+    return _marketValue[collection][tokenId];
   }
 
   function onERC721Received(

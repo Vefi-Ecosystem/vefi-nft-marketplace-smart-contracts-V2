@@ -151,19 +151,6 @@ contract Bridge is Ownable, IERC721Receiver, AccessControl, IBridge {
     emit Redeemed(chainId, signature, collection, tokenId, recoveredSigner, nonce, tokenURI);
   }
 
-  function unwrap(
-    address collection,
-    uint256 tokenId,
-    uint256 nonce
-  ) external {
-    require(collection.isContract());
-    require(IERC721(collection).ownerOf(tokenId) == _msgSender());
-    _safeBurn(collection, tokenId);
-    require(!nonceUsed[_msgSender()][nonce]);
-
-    address wrappedCollection = wrappedCollections[collection];
-  }
-
   function onERC721Received(
     address,
     address,
