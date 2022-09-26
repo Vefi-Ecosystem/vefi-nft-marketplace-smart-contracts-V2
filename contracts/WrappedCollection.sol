@@ -5,19 +5,15 @@ import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
-import '@openzeppelin/contracts/utils/Counters.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
-import './interfaces/ICollection.sol';
 
-contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownable, AccessControl {
-  using Counters for Counters.Counter;
+// Only intent is to wrap a collection
+contract WrappedCollection is ERC721URIStorage, ERC721Enumerable, ERC721Royalty, Ownable, AccessControl {
   using SafeMath for uint256;
 
-  Counters.Counter private tokenIds;
-
-  uint256 public maxSupply;
-  uint256 public mintStartTime;
-  uint256 public maxBalance;
+  // uint256 public maxSupply;
+  // uint256 public mintStartTime;
+  // uint256 public maxBalance;
 
   bytes32 public minterRole = keccak256(abi.encode('MINTER_ROLE'));
   bytes32 public royaltySetterRole = keccak256(abi.encode('ROYALTY_SETTER_ROLE'));
@@ -39,28 +35,19 @@ contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Ro
   constructor(
     string memory name_,
     string memory symbol_,
-    address owner_,
-    uint256 maxSupply_,
-    uint256 mintStartTime_,
-    string memory metadataURI_,
-    uint256 maxBalance_
+    string memory metadataURI_
   ) Ownable() ERC721(name_, symbol_) {
-    maxSupply = maxSupply_;
-    mintStartTime = mintStartTime_;
     metadataURI = metadataURI_;
-    maxBalance = maxBalance_;
     _grantRole(minterRole, _msgSender());
     _grantRole(royaltySetterRole, _msgSender());
-    _transferOwnership(owner_);
-    _grantRole(royaltySetterRole, owner_);
   }
 
-  function mint(address _to, string memory _tokenURI) external ownerOrMinter returns (uint256 tokenId) {
-    require(totalSupply() < maxSupply);
-    require(block.timestamp >= mintStartTime);
-    require(balanceOf(_to) < maxBalance);
-    tokenIds.increment();
-    tokenId = tokenIds.current();
+  function mint(
+    address _to,
+    string memory _tokenURI,
+    uint256 tId
+  ) external ownerOrMinter returns (uint256 tokenId) {
+    tokenId = tId;
     _safeMint(_to, tokenId);
     _setTokenURI(tokenId, _tokenURI);
     _setTokenRoyalty(tokenId, _to, royaltyNumerator);
@@ -89,15 +76,6 @@ contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Ro
     return super._burn(tokenId);
   }
 
-  function _transfer(
-    address from,
-    address to,
-    uint256 tokenId
-  ) internal virtual override(ERC721) {
-    require(balanceOf(to) < maxBalance);
-    return super._transfer(from, to, tokenId);
-  }
-
   function _beforeTokenTransfer(
     address from,
     address to,
@@ -108,9 +86,5 @@ contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Ro
 
   function tokenURI(uint256 tokenId) public view virtual override(ERC721, ERC721URIStorage) returns (string memory) {
     return super.tokenURI(tokenId);
-  }
-
-  function increaseMaxSupplyBy(uint256 val) external onlyOwner {
-    maxSupply = maxSupply.add(val);
   }
 }

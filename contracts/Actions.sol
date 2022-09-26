@@ -4,14 +4,7 @@ import './Collection.sol';
 import './interfaces/ICollection.sol';
 
 contract Actions {
-  event CollectionDeployed(
-    address collectionId,
-    string name,
-    string symbol,
-    address owner,
-    uint256 mintStartTime,
-    string metadataURI
-  );
+  event CollectionDeployed(address collectionId, string name, string symbol, address owner, uint256 mintStartTime, string metadataURI);
 
   event NFTCreated(address collection, address to, uint256 tokenId, string tokenURI);
 
