@@ -130,22 +130,21 @@ describe('All Tests', () => {
     it('should disallow the auctioning of token if caller is not the owner', async () => {
       const [, signer2] = await ethers.getSigners();
       await expect(
-        marketplace.connect(signer2).createAuction(collection.address, 1, ethers.utils.parseEther('2'), (await time.latest()) + 60 * 60)
+        marketplace.connect(signer2).createAuction(collection.address, 1, ethers.utils.parseEther('2'), (await time.latest()).toNumber() + 60 * 60)
       ).to.be.revertedWith('not_token_owner');
     });
 
     it('should disallow auctioning without approval', async () => {
       await expect(
-        marketplace.createAuction(collection.address, 1, ethers.utils.parseEther('2'), Math.floor(Date.now() / 1000) + 60 * 60)
+        marketplace.createAuction(collection.address, 1, ethers.utils.parseEther('2'), (await time.latest()).toNumber() + 60 * 60)
       ).to.be.revertedWith('not_approved');
     });
 
     it('should add item to auction', async () => {
       await collection.setApprovalForAll(marketplace.address, true);
-      await expect(marketplace.createAuction(collection.address, 1, ethers.utils.parseEther('2'), Math.floor(Date.now() / 1000) + 60 * 60)).to.emit(
-        marketplace,
-        'AuctionItemCreated'
-      );
+      await expect(
+        marketplace.createAuction(collection.address, 1, ethers.utils.parseEther('2'), (await time.latest()).toNumber() + 60 * 60)
+      ).to.emit(marketplace, 'AuctionItemCreated');
     });
 
     it('should allow bidding', async () => {
