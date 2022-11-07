@@ -9,6 +9,7 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import './libraries/TransferHelpers.sol';
+import './MintableBabyVEF.sol';
 
 contract Staking is IERC721Receiver, Ownable, AccessControl, ReentrancyGuard {
   struct StakeInfo {
@@ -90,6 +91,23 @@ contract Staking is IERC721Receiver, Ownable, AccessControl, ReentrancyGuard {
     StakeInfo[] storage usersStakes = stakings[_msgSender()];
     usersStakes.push(stakeInfo);
     emit Staked(_msgSender(), collection, tokenId, stakeId);
+  }
+
+  function withdrawReward(bytes32 stakeId) external nonReentrant {
+    StakeInfo storage stakeInfo = stakes[stakeId];
+    require(stakeInfo.staker == _msgSender(), 'only_stake_owner');
+    require(block.timestamp >= stakeInfo.nextWithdrawalTime, 'not_time_for_withdrawals');
+    uint256 reward = calculateReward(stakeId);
+    MintableBabyVEF(payable(stakeFeeToken)).mint(_msgSender(), reward);
+    stakeInfo.stakedSince = block.timestamp;
+    stakeInfo.nextWithdrawalTime = block.timestamp.add(withdrawalIntervals);
+  }
+
+  function unstake(bytes32 stakeId) external nonReentrant {
+    StakeInfo memory stakeInfo = stakes[stakeId];
+    require(stakeInfo.staker == _msgSender(), 'only_stake_owner');
+    IERC721(stakeInfo.collection).transferFrom(address(this), _msgSender(), stakeInfo.tokenId);
+    delete stakes[stakeId];
   }
 
   function onERC721Received(
