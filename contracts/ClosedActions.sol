@@ -2,18 +2,34 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import './libraries/ActionHelpers.sol';
 import './libraries/TransferHelpers.sol';
 
 contract ClosedActions is Ownable, AccessControl {
+  using SafeMath for uint256;
+
   address public action;
   uint256 private fee;
   bytes32 public feeTakerRole = keccak256(abi.encodePacked('FEE_TAKER_ROLE'));
   bytes32 public feeSetterRole = keccak256(abi.encodePacked('FEE_SETTER_ROLE'));
+  address public discountToken;
+  uint8 public discount;
+  uint256 public requiredAmountOfDiscountToken;
 
-  constructor(address _action, uint256 _fee) {
+  constructor(
+    address _action,
+    uint256 _fee,
+    address _token,
+    uint8 _discount,
+    uint256 _requiredAmountOfDiscountToken
+  ) {
     action = _action;
     fee = _fee;
+    discountToken = _token;
+    discount = _discount;
+    requiredAmountOfDiscountToken = _requiredAmountOfDiscountToken;
     _grantRole(feeTakerRole, _msgSender());
     _grantRole(feeSetterRole, _msgSender());
   }
@@ -24,14 +40,29 @@ contract ClosedActions is Ownable, AccessControl {
     uint256 maxSupply,
     uint256 mintStartTime,
     string memory metadataURI,
-    uint256 maxBalance
+    uint256 maxBalance,
+    uint96 royaltyNumerator
   ) external payable returns (address collectionId) {
-    require(msg.value >= fee, 'fee');
-    collectionId = ActionHelpers._safeDeployCollection(action, name, symbol, _msgSender(), maxSupply, mintStartTime, metadataURI, maxBalance);
+    uint256 feeToPay = getFee(_msgSender());
+    require(msg.value >= feeToPay, 'fee');
+    collectionId = ActionHelpers._safeDeployCollection(
+      action,
+      name,
+      symbol,
+      _msgSender(),
+      maxSupply,
+      mintStartTime,
+      metadataURI,
+      maxBalance,
+      royaltyNumerator
+    );
   }
 
-  function getFee() external view returns (uint256) {
-    return fee;
+  function getFee(address account) public view returns (uint256 feeToPay) {
+    if (discountToken != address(0) && IERC20(discountToken).balanceOf(account) >= requiredAmountOfDiscountToken) {
+      uint256 val = fee.mul(discount).div(100);
+      feeToPay = fee.sub(val);
+    } else feeToPay = fee;
   }
 
   function setFee(uint256 _fee) external {
@@ -62,6 +93,18 @@ contract ClosedActions is Ownable, AccessControl {
   function withdrawEther(address to, uint256 amount) external {
     require(hasRole(feeTakerRole, _msgSender()), 'only_fee_taker');
     TransferHelpers._safeTransferEther(to, amount);
+  }
+
+  function setDiscountToken(address token) external onlyOwner {
+    discountToken = token;
+  }
+
+  function setRequiredHold(uint256 _requiredHold) external onlyOwner {
+    requiredAmountOfDiscountToken = _requiredHold;
+  }
+
+  function setDiscount(uint8 _discount) external onlyOwner {
+    discount = _discount;
   }
 
   function withdrawERC20(

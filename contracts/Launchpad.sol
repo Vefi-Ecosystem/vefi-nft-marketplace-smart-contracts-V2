@@ -20,6 +20,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     uint256 _endTime;
     uint256 _price;
     uint256 _nextTokenURIIndex;
+    uint8 _discount;
   }
 
   event LaunchItemCreated(bytes32 _launchId, address _collection, string[] _tokenURIs, uint256 _startTime, uint256 _endTime, uint256 _price);
@@ -27,11 +28,15 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   event LaunchItemFinalized(bytes32 _launchId);
 
   address action;
+  address public discountToken;
+
   mapping(bytes32 => LaunchInfo) private launches;
   mapping(bytes32 => uint256) private balances;
   mapping(bytes32 => bool) private finality;
 
   uint256 public withdrawableBalance;
+  uint256 public requiredHold;
+  uint8 public feePercentage;
 
   bytes32 public actionSetterRole = keccak256(abi.encode('ACTION_SETTER_ROLE'));
   bytes32 public launchCreatorRole = keccak256(abi.encode('LAUNCH_CREATOR_ROLE'));
@@ -39,8 +44,16 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   bytes32 public withdrawerRole = keccak256(abi.encode('WITHDRAWER_ROLE'));
   bytes32[] public launchIds;
 
-  constructor(address action_) {
+  constructor(
+    address action_,
+    uint8 _feePercentage,
+    address _discountToken,
+    uint256 _requiredHold
+  ) {
     action = action_;
+    feePercentage = _feePercentage;
+    discountToken = _discountToken;
+    requiredHold = _requiredHold;
     _grantRole(actionSetterRole, _msgSender());
     _grantRole(launchCreatorRole, _msgSender());
     _grantRole(finalizerRole, _msgSender());
@@ -58,12 +71,24 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     uint256 launchStartTime,
     int256 daysForLaunch,
     string[] memory tokenURIs,
-    uint256 _pricePerToken
+    uint256 _pricePerToken,
+    uint96 royaltyNumerator,
+    uint8 _discount
   ) external {
     require(hasRole(launchCreatorRole, _msgSender()), 'only_launch_creator');
     require(tokenURIs.length == maxSupply, 'length_of_uris_must_be_same_as_max_supply');
     require(mintStartTime == launchStartTime, 'minting_time_must_be_same_as_launch_time');
-    address _collection = ActionHelpers._safeDeployCollection(action, name, symbol, owner_, maxSupply, mintStartTime, metadataURI, maxBalance_);
+    address _collection = ActionHelpers._safeDeployCollection(
+      action,
+      name,
+      symbol,
+      owner_,
+      maxSupply,
+      mintStartTime,
+      metadataURI,
+      maxBalance_,
+      royaltyNumerator
+    );
     bytes32 _launchId = keccak256(abi.encodePacked(_collection, name, symbol, owner_, mintStartTime, metadataURI, address(this)));
     launches[_launchId] = LaunchInfo(
       _collection,
@@ -71,7 +96,8 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
       launchStartTime,
       launchStartTime.add(uint256(daysForLaunch).mul(60).mul(60).mul(24)),
       _pricePerToken,
-      0
+      0,
+      _discount
     );
 
     launchIds.push(_launchId);
@@ -87,7 +113,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     LaunchInfo storage _launchInfo = launches[_launchId];
     require(_launchInfo._startTime <= block.timestamp, 'not_time_to_mint');
     require(!finality[_launchId], 'already_finalized');
-    require(amount == _launchInfo._price, 'must_pay_exact_price_for_token');
+    require(amount == getBuyPrice(_launchId, _msgSender()), 'must_pay_exact_price_for_token');
     tokenId = ActionHelpers._safeMintNFT(action, _launchInfo._collection, _for, _launchInfo._tokenURIs[_launchInfo._nextTokenURIIndex]);
     balances[_launchId] = balances[_launchId].add(amount);
     _launchInfo._nextTokenURIIndex = _launchInfo._nextTokenURIIndex.add(1);
@@ -98,8 +124,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   }
 
   function bulkMint(bytes32 _launchId, uint256 total) external payable nonReentrant returns (uint256[] memory tokenIds) {
-    LaunchInfo memory _launchInfo = launches[_launchId];
-    uint256 totalAmount = _launchInfo._price.mul(total);
+    uint256 totalAmount = getBuyPrice(_launchId, _msgSender()).mul(total);
     require(msg.value == totalAmount, 'not_enough_ether_for_bulk_mint');
 
     for (uint256 i = 0; i < total; i++) {
@@ -114,7 +139,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     LaunchInfo storage _launchInfo = launches[_launchId];
     require(_launchInfo._endTime <= block.timestamp, 'cannot_finalize_now');
 
-    uint256 _fee = balances[_launchId].mul(30) / 100;
+    uint256 _fee = balances[_launchId].mul(feePercentage) / 100;
     uint256 _profit = balances[_launchId].sub(_fee);
 
     Ownable ownable = Ownable(_launchInfo._collection);
@@ -183,6 +208,18 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   function revokeWithdrawer(address withdrawer) external onlyOwner {
     require(hasRole(withdrawerRole, withdrawer), 'not_withdrawer');
     _revokeRole(withdrawerRole, withdrawer);
+  }
+
+  function getBuyPrice(bytes32 launchId, address account) public view returns (uint256 price) {
+    LaunchInfo memory launchInfo = launches[launchId];
+    if (discountToken != address(0) && IERC20(discountToken).balanceOf(account) >= requiredHold) {
+      uint256 val = launchInfo._price.mul(launchInfo._discount).div(100);
+      price = launchInfo._price.sub(val);
+    } else price = launchInfo._price;
+  }
+
+  function setRequiredHold(uint256 _requiredHold) external onlyOwner {
+    requiredHold = _requiredHold;
   }
 
   function onERC721Received(
