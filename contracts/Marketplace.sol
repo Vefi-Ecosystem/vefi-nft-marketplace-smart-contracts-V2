@@ -214,12 +214,14 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
 
     IERC721(offerItem._collection).safeTransferFrom(_msgSender(), offerItem._creator, offerItem._tokenId);
 
-    for (uint256 i = 0; i < _offerIds.length; i++) {
-      OfferItem memory innerOfferItem = _offers[_offerIds[i]];
+    bytes32[] memory iOfferIds = _offerIds;
 
-      if (innerOfferItem._collection == offerItem._collection && innerOfferItem._tokenId == offerItem._tokenId && _offerIds[i] != offerId) {
+    for (uint256 i = 0; i < iOfferIds.length; i++) {
+      OfferItem memory innerOfferItem = _offers[iOfferIds[i]];
+
+      if (innerOfferItem._collection == offerItem._collection && innerOfferItem._tokenId == offerItem._tokenId && iOfferIds[i] != offerId) {
         delete _offers[_offerIds[i]];
-        emit OfferItemCancelled(_offerIds[i]);
+        emit OfferItemCancelled(iOfferIds[i]);
       }
     }
     delete _offers[offerId];

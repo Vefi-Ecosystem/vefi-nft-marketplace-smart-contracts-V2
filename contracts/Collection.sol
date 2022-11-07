@@ -57,7 +57,7 @@ contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Ro
     _grantRole(royaltySetterRole, owner_);
   }
 
-  function mint(address _to, string memory _tokenURI) external ownerOrMinter returns (uint256 tokenId) {
+  function mint(address _to, string memory _tokenURI) public ownerOrMinter returns (uint256 tokenId) {
     require(totalSupply() < maxSupply);
     require(block.timestamp >= mintStartTime);
     require(balanceOf(_to) < maxBalance);
@@ -68,19 +68,30 @@ contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Ro
     _setTokenRoyalty(tokenId, _to, royaltyNumerator);
   }
 
+  function bulkMint(address[] memory _to, string[] memory _tokenURI) external ownerOrMinter returns (uint256[] memory tokenIDs) {
+    require(_to.length == _tokenURI.length);
+    for (uint256 i = 0; i < _to.length; i++) {
+      tokenIDs[i] = mint(_to[i], _tokenURI[i]);
+    }
+  }
+
   function burn(uint256 _tokenId) external onlyOwner {
     require(_exists(_tokenId));
     _burn(_tokenId);
   }
 
-  function addMinter(address _minter) external onlyOwner {
-    require(!hasRole(minterRole, _minter));
-    _grantRole(minterRole, _minter);
+  function addMinters(address[] memory _minters) external onlyOwner {
+    for (uint256 i = 0; i < _minters.length; i++) {
+      require(!hasRole(minterRole, _minters[i]));
+      _grantRole(minterRole, _minters[i]);
+    }
   }
 
-  function removeMinter(address _minter) external onlyOwner {
-    require(hasRole(minterRole, _minter));
-    _revokeRole(minterRole, _minter);
+  function removeMinters(address[] memory _minters) external onlyOwner {
+    for (uint256 i = 0; i < _minters.length; i++) {
+      require(hasRole(minterRole, _minters[i]));
+      _revokeRole(minterRole, _minters[i]);
+    }
   }
 
   function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC721, ERC721Enumerable, ERC721Royalty) returns (bool) {

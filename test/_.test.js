@@ -23,7 +23,7 @@ describe('All Tests', () => {
       action = await action.deployed();
 
       const LaunchpadFactory = await ethers.getContractFactory('Launchpad');
-      launchpad = await LaunchpadFactory.deploy(action.address, 30);
+      launchpad = await LaunchpadFactory.deploy(action.address, 30, ethers.constants.AddressZero, 0);
       launchpad = await launchpad.deployed();
     });
 
@@ -42,7 +42,8 @@ describe('All Tests', () => {
           10,
           ['https://metadata', 'https://metadata', 'https://metadata'],
           ethers.utils.parseEther('0.002'),
-          2 * 100
+          2 * 100,
+          0
         )
       ).to.emit(launchpad, 'LaunchItemCreated');
     });

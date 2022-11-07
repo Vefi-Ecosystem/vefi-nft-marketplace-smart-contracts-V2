@@ -59,7 +59,7 @@ contract ClosedActions is Ownable, AccessControl {
   }
 
   function getFee(address account) public view returns (uint256 feeToPay) {
-    if (IERC20(discountToken).balanceOf(account) >= requiredAmountOfDiscountToken) {
+    if (discountToken != address(0) && IERC20(discountToken).balanceOf(account) >= requiredAmountOfDiscountToken) {
       uint256 val = fee.mul(discount).div(100);
       feeToPay = fee.sub(val);
     } else feeToPay = fee;
@@ -93,6 +93,18 @@ contract ClosedActions is Ownable, AccessControl {
   function withdrawEther(address to, uint256 amount) external {
     require(hasRole(feeTakerRole, _msgSender()), 'only_fee_taker');
     TransferHelpers._safeTransferEther(to, amount);
+  }
+
+  function setDiscountToken(address token) external onlyOwner {
+    discountToken = token;
+  }
+
+  function setRequiredHold(uint256 _requiredHold) external onlyOwner {
+    requiredAmountOfDiscountToken = _requiredHold;
+  }
+
+  function setDiscount(uint8 _discount) external onlyOwner {
+    discount = _discount;
   }
 
   function withdrawERC20(

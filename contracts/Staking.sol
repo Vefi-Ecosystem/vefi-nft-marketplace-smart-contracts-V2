@@ -110,6 +110,15 @@ contract Staking is IERC721Receiver, Ownable, AccessControl, ReentrancyGuard {
     delete stakes[stakeId];
   }
 
+  function retrieveERC20(
+    address token,
+    address to,
+    uint256 amount
+  ) external nonReentrant {
+    require(hasRole(feeTakerRole, _msgSender()), 'only_fee_taker');
+    TransferHelpers._safeTransferERC20(token, to, amount);
+  }
+
   function onERC721Received(
     address,
     address,
