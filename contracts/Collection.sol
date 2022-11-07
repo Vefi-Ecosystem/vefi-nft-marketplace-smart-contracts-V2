@@ -22,7 +22,7 @@ contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Ro
   bytes32 public minterRole = keccak256(abi.encode('MINTER_ROLE'));
   bytes32 public royaltySetterRole = keccak256(abi.encode('ROYALTY_SETTER_ROLE'));
 
-  uint96 public royaltyNumerator = 2000;
+  uint96 public royaltyNumerator;
 
   string public metadataURI;
 
@@ -43,12 +43,14 @@ contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Ro
     uint256 maxSupply_,
     uint256 mintStartTime_,
     string memory metadataURI_,
-    uint256 maxBalance_
+    uint256 maxBalance_,
+    uint96 royaltyNumerator_
   ) Ownable() ERC721(name_, symbol_) {
     maxSupply = maxSupply_;
     mintStartTime = mintStartTime_;
     metadataURI = metadataURI_;
     maxBalance = maxBalance_;
+    royaltyNumerator = royaltyNumerator_;
     _grantRole(minterRole, _msgSender());
     _grantRole(royaltySetterRole, _msgSender());
     _transferOwnership(owner_);

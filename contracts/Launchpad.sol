@@ -32,6 +32,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   mapping(bytes32 => bool) private finality;
 
   uint256 public withdrawableBalance;
+  uint8 public feePercentage;
 
   bytes32 public actionSetterRole = keccak256(abi.encode('ACTION_SETTER_ROLE'));
   bytes32 public launchCreatorRole = keccak256(abi.encode('LAUNCH_CREATOR_ROLE'));
@@ -39,8 +40,9 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   bytes32 public withdrawerRole = keccak256(abi.encode('WITHDRAWER_ROLE'));
   bytes32[] public launchIds;
 
-  constructor(address action_) {
+  constructor(address action_, uint8 _feePercentage) {
     action = action_;
+    feePercentage = _feePercentage;
     _grantRole(actionSetterRole, _msgSender());
     _grantRole(launchCreatorRole, _msgSender());
     _grantRole(finalizerRole, _msgSender());
@@ -58,12 +60,23 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     uint256 launchStartTime,
     int256 daysForLaunch,
     string[] memory tokenURIs,
-    uint256 _pricePerToken
+    uint256 _pricePerToken,
+    uint96 royaltyNumerator
   ) external {
     require(hasRole(launchCreatorRole, _msgSender()), 'only_launch_creator');
     require(tokenURIs.length == maxSupply, 'length_of_uris_must_be_same_as_max_supply');
     require(mintStartTime == launchStartTime, 'minting_time_must_be_same_as_launch_time');
-    address _collection = ActionHelpers._safeDeployCollection(action, name, symbol, owner_, maxSupply, mintStartTime, metadataURI, maxBalance_);
+    address _collection = ActionHelpers._safeDeployCollection(
+      action,
+      name,
+      symbol,
+      owner_,
+      maxSupply,
+      mintStartTime,
+      metadataURI,
+      maxBalance_,
+      royaltyNumerator
+    );
     bytes32 _launchId = keccak256(abi.encodePacked(_collection, name, symbol, owner_, mintStartTime, metadataURI, address(this)));
     launches[_launchId] = LaunchInfo(
       _collection,
@@ -114,7 +127,7 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
     LaunchInfo storage _launchInfo = launches[_launchId];
     require(_launchInfo._endTime <= block.timestamp, 'cannot_finalize_now');
 
-    uint256 _fee = balances[_launchId].mul(30) / 100;
+    uint256 _fee = balances[_launchId].mul(feePercentage) / 100;
     uint256 _profit = balances[_launchId].sub(_fee);
 
     Ownable ownable = Ownable(_launchInfo._collection);
@@ -183,6 +196,10 @@ contract Launchpad is Ownable, ILaunchpad, AccessControl, IERC721Receiver, Reent
   function revokeWithdrawer(address withdrawer) external onlyOwner {
     require(hasRole(withdrawerRole, withdrawer), 'not_withdrawer');
     _revokeRole(withdrawerRole, withdrawer);
+  }
+
+  function getLaunchItemPrice(bytes32 launchId) public view returns (uint256 price) {
+    price = launches[launchId]._price;
   }
 
   function onERC721Received(

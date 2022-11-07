@@ -23,7 +23,7 @@ describe('All Tests', () => {
       action = await action.deployed();
 
       const LaunchpadFactory = await ethers.getContractFactory('Launchpad');
-      launchpad = await LaunchpadFactory.deploy(action.address);
+      launchpad = await LaunchpadFactory.deploy(action.address, 30);
       launchpad = await launchpad.deployed();
     });
 
@@ -41,7 +41,8 @@ describe('All Tests', () => {
           Math.floor(Date.now() / 1000) + 30,
           10,
           ['https://metadata', 'https://metadata', 'https://metadata'],
-          ethers.utils.parseEther('0.002')
+          ethers.utils.parseEther('0.002'),
+          2 * 100
         )
       ).to.emit(launchpad, 'LaunchItemCreated');
     });
@@ -113,7 +114,8 @@ describe('All Tests', () => {
         3000,
         Math.floor(Date.now() / 1000),
         'https://placeholder.com',
-        4
+        4,
+        20 * 100
       );
       marketplace = await MarketplaceFactory.deploy();
       collection = await collection.deployed();
