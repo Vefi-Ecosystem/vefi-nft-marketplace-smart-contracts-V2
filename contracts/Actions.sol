@@ -10,6 +10,8 @@ contract Actions is Ownable {
 
   event NFTCreated(address collection, address to, uint256 tokenId, string tokenURI);
 
+  address[] public collections;
+
   function _deployCollection(
     string memory name_,
     string memory symbol_,
@@ -32,7 +34,7 @@ contract Actions is Ownable {
         revert(0, 0)
       }
     }
-
+    collections.push(collection);
     emit CollectionDeployed(collection, name_, symbol_, owner_, mintStartTime_, metadataURI_);
   }
 
@@ -51,5 +53,9 @@ contract Actions is Ownable {
   ) external returns (uint256 tokenId) {
     tokenId = ICollection(collection_).mint(to_, tokenURI_);
     emit NFTCreated(collection_, to_, tokenId, tokenURI_);
+  }
+
+  function allCollections() external view returns (address[] memory) {
+    return collections;
   }
 }

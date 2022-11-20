@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "files": [
+    "artifacts",
+    "contracts"
+  ],
   "scripts": {
     "test": "rm -rf artifacts && rm -rf cache && npx hardhat test --network ganache",
     "format": "prettier --write **/**/*.{js,json,sol}",

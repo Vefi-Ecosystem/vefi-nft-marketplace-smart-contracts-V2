@@ -126,4 +126,8 @@ contract Collection is ICollection, ERC721URIStorage, ERC721Enumerable, ERC721Ro
   function increaseMaxSupplyBy(uint256 val) external onlyOwner {
     maxSupply = maxSupply.add(val);
   }
+
+  function updateMetadataURI(string memory _uri) external onlyOwner {
+    metadataURI = _uri;
+  }
 }
