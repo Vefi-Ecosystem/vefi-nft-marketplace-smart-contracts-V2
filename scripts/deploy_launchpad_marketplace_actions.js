@@ -13,6 +13,10 @@ const coinGeckID = {
   66: 'oec-token',
 };
 
+const weths = {
+  97: '0x69c5207A60C8e34311E44A2E10afa0CB4dbFC8df',
+};
+
 (async () => {
   try {
     console.log('---------- Deploying to chain %d ----------', network.config.chainId);
@@ -25,7 +29,7 @@ const coinGeckID = {
     launchpad = await launchpad.deployed();
 
     const MarketplaceFactory = await ethers.getContractFactory('Marketplace');
-    let marketplace = await MarketplaceFactory.deploy();
+    let marketplace = await MarketplaceFactory.deploy(weths[network.config.chainId]);
     marketplace = await marketplace.deployed();
 
     const cgID = coinGeckID[network.config.chainId];

@@ -9,6 +9,7 @@ import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/access/AccessControl.sol';
 import './interfaces/IMarketplace.sol';
+import './interfaces/IWETH.sol';
 import './libraries/TransferHelpers.sol';
 
 contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
@@ -42,15 +43,19 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
   mapping(bytes32 => AuctionItem) public _auctions;
   mapping(address => mapping(uint256 => uint256)) public _marketValue;
   mapping(bytes32 => OfferItem) public _offers;
+  mapping(address => mapping(uint256 => bytes32)) public _currentOffer;
 
-  bytes32[] public _offerIds;
   bytes32[] public auctionIDs;
-
-  uint256 public withdrawableBalance;
-
   bytes32 public withdrawerRole = keccak256(abi.encode('WITHDRAWER_ROLE'));
 
-  constructor() {
+  uint256 public withdrawableBalance;
+  uint8 public ecosystemTradeFeePercentage = 9;
+  uint8 public collectionOwnerTradeFeePercentage = 3;
+
+  address public immutable WETH;
+
+  constructor(address _WETH) {
+    WETH = _WETH;
     _grantRole(withdrawerRole, _msgSender());
   }
 
@@ -79,7 +84,7 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
   function _bidItem(bytes32 auctionId, uint256 amount) private {
     AuctionItem storage auctionItem = _auctions[auctionId];
     require(auctionItem._endsIn > block.timestamp, 'auction_ended_already');
-    require(amount >= auctionItem._price, 'value_must_be_greater_than_or_equal_to_current_price');
+    require(amount > auctionItem._price, 'value_must_be_greater_than_current_price');
 
     if (auctionItem._currentBidder != address(0)) {
       require(TransferHelpers._safeTransferEther(auctionItem._currentBidder, auctionItem._price), 'could_not_transfer_ether');
@@ -114,8 +119,8 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
     AuctionItem storage auctionItem = _auctions[auctionId];
     require(block.timestamp >= auctionItem._endsIn, 'cannot_finalize_auction_before_end_time');
     uint256 val = auctionItem._price;
-    uint256 _fee = val.mul(7).div(100);
-    uint256 _collectionOwnerFee = _fee.mul(10).div(100);
+    uint256 _fee = val.mul(ecosystemTradeFeePercentage).div(100);
+    uint256 _collectionOwnerFee = _fee.mul(collectionOwnerTradeFeePercentage).div(100);
     uint256 _splitFee = _fee.sub(_collectionOwnerFee);
     (address royalty, uint256 royaltyValue) = IERC2981(auctionItem._collection).royaltyInfo(auctionItem._tokenId, _splitFee);
 
@@ -149,17 +154,19 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
     address collection,
     uint256 tokenId,
     uint256 price,
-    uint256 endsIn,
-    address tokenOffered
+    uint256 endsIn
   ) private returns (bytes32 offerId) {
-    require(tokenOffered.isContract());
-    require(collection.isContract());
-    require(IERC20(tokenOffered).allowance(creator, address(this)) >= price, 'not_enough_allowance');
+    require(collection.isContract(), 'collection_must_be_contract');
+    require(IERC20(WETH).allowance(creator, address(this)) >= price, 'not_enough_allowance');
+
+    if (_currentOffer[collection][tokenId] != bytes32(0)) {
+      require(_offers[_currentOffer[collection][tokenId]]._price < price, 'current_offer_is_higher_than_or_equal_to_price');
+    }
     require(price >= _marketValue[collection][tokenId], 'offer_must_be_greater_than_or_equal_to_market_value');
     require(endsIn > block.timestamp && endsIn.sub(block.timestamp) >= 1 hours, 'offer_must_end_at_a_future_time_and_must_last_at_least_an_hour');
     offerId = computeId(collection, tokenId);
-    _offers[offerId] = OfferItem(creator, collection, price, tokenId, endsIn, tokenOffered);
-    _offerIds.push(offerId);
+    _offers[offerId] = OfferItem(creator, collection, price, tokenId, endsIn);
+    _currentOffer[collection][tokenId] = offerId;
     emit OfferItemCreated(offerId, creator, collection, price, tokenId, endsIn);
   }
 
@@ -167,10 +174,9 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
     address collection,
     uint256 tokenId,
     uint256 price,
-    uint256 endsIn,
-    address tokenOffered
+    uint256 endsIn
   ) external returns (bool) {
-    _createOffer(_msgSender(), collection, tokenId, price, endsIn, tokenOffered);
+    _createOffer(_msgSender(), collection, tokenId, price, endsIn);
     return true;
   }
 
@@ -178,8 +184,7 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
     address collection,
     uint256[] memory tokenIds,
     uint256[] memory amounts,
-    uint256 endsIn,
-    address tokenOffered
+    uint256 endsIn
   ) external returns (bool) {
     require(tokenIds.length == amounts.length, 'token_ids_and_amounts_must_be_same_length');
 
@@ -187,9 +192,9 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
 
     for (uint256 i = 0; i < amounts.length; i++) totalAmount = totalAmount.add(amounts[i]);
 
-    require(IERC20(tokenOffered).allowance(_msgSender(), address(this)) >= totalAmount, 'not_enough_allowance');
+    require(IERC20(WETH).allowance(_msgSender(), address(this)) >= totalAmount, 'not_enough_allowance');
 
-    for (uint256 i = 0; i < tokenIds.length; i++) _createOffer(_msgSender(), collection, tokenIds[i], amounts[i], endsIn, tokenOffered);
+    for (uint256 i = 0; i < tokenIds.length; i++) _createOffer(_msgSender(), collection, tokenIds[i], amounts[i], endsIn);
 
     return true;
   }
@@ -200,31 +205,27 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
     require(offerItem._endsIn > block.timestamp, 'offer_ended');
     require(IERC721(offerItem._collection).isApprovedForAll(_msgSender(), address(this)), 'no_approval_given');
 
-    uint256 _fee = offerItem._price.mul(9).div(100);
-    uint256 _collectionOwnerFee = _fee.mul(10).div(100);
+    uint256 _fee = offerItem._price.mul(ecosystemTradeFeePercentage).div(100);
+    uint256 _collectionOwnerFee = _fee.mul(collectionOwnerTradeFeePercentage).div(100);
     uint256 _splitFee = _fee.sub(_collectionOwnerFee);
     (address royalty, uint256 royaltyValue) = IERC2981(offerItem._collection).royaltyInfo(offerItem._tokenId, _splitFee);
 
     Ownable ownable = Ownable(offerItem._collection);
 
-    TransferHelpers._safeTransferFromERC20(offerItem._tokenOffered, offerItem._creator, _msgSender(), offerItem._price.sub(_fee));
-    TransferHelpers._safeTransferFromERC20(offerItem._tokenOffered, offerItem._creator, ownable.owner(), _collectionOwnerFee);
-    TransferHelpers._safeTransferFromERC20(offerItem._tokenOffered, offerItem._creator, royalty, royaltyValue);
-    TransferHelpers._safeTransferFromERC20(offerItem._tokenOffered, offerItem._creator, address(this), _splitFee.sub(royaltyValue));
+    TransferHelpers._safeTransferFromERC20(WETH, offerItem._creator, address(this), offerItem._price);
+    IWETH(WETH).withdraw(offerItem._price);
+
+    TransferHelpers._safeTransferEther(_msgSender(), offerItem._price.sub(_fee));
+    TransferHelpers._safeTransferEther(ownable.owner(), _collectionOwnerFee);
+    TransferHelpers._safeTransferEther(royalty, royaltyValue);
+
+    withdrawableBalance = withdrawableBalance.add(_splitFee.sub(royaltyValue));
+    _marketValue[offerItem._collection][offerItem._tokenId] = offerItem._price;
 
     IERC721(offerItem._collection).safeTransferFrom(_msgSender(), offerItem._creator, offerItem._tokenId);
 
-    bytes32[] memory iOfferIds = _offerIds;
-
-    for (uint256 i = 0; i < iOfferIds.length; i++) {
-      OfferItem memory innerOfferItem = _offers[iOfferIds[i]];
-
-      if (innerOfferItem._collection == offerItem._collection && innerOfferItem._tokenId == offerItem._tokenId && iOfferIds[i] != offerId) {
-        delete _offers[_offerIds[i]];
-        emit OfferItemCancelled(iOfferIds[i]);
-      }
-    }
     delete _offers[offerId];
+    _currentOffer[offerItem._collection][offerItem._tokenId] = bytes32(0);
     emit OfferItemAccepted(offerId);
     return true;
   }
@@ -233,6 +234,7 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
     OfferItem memory offerItem = _offers[offerId];
     require(IERC721(offerItem._collection).ownerOf(offerItem._tokenId) == _msgSender(), 'only_token_owner');
     delete _offers[offerId];
+    _currentOffer[offerItem._collection][offerItem._tokenId] = bytes32(0);
     emit OfferItemRejected(offerId);
     return true;
   }
@@ -241,6 +243,7 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
     OfferItem memory offerItem = _offers[offerId];
     require(offerItem._creator == _msgSender(), 'only_offer_creator');
     delete _offers[offerId];
+    _currentOffer[offerItem._collection][offerItem._tokenId] = bytes32(0);
     emit OfferItemCancelled(offerId);
     return true;
   }
@@ -268,6 +271,14 @@ contract Marketplace is Ownable, IERC721Receiver, IMarketplace, AccessControl {
 
   function getMarketValue(address collection, uint256 tokenId) external view returns (uint256) {
     return _marketValue[collection][tokenId];
+  }
+
+  function setEcosystemTradeFeePercentage(uint8 perc) external onlyOwner {
+    ecosystemTradeFeePercentage = perc;
+  }
+
+  function setCollectionOwnerTradeFeePercentage(uint8 perc) external onlyOwner {
+    collectionOwnerTradeFeePercentage = perc;
   }
 
   function onERC721Received(

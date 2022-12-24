@@ -22,7 +22,7 @@ module.exports = {
   },
   networks: {
     bsc_testnet: {
-      url: 'https://bsctestapi.terminet.io/rpc',
+      url: 'https://data-seed-prebsc-2-s3.binance.org:8545',
       accounts: [process.env.PRIVATE_KEY],
       chainId: 97,
     },
