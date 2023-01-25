@@ -31,6 +31,7 @@ contract Auction is Ownable, IERC721Receiver, Pausable, ReentrancyGuard {
   address public immutable marketplaceFeeRecipient;
 
   bool public isFinalized;
+  bool public isCancelled;
 
   event Bid(address indexed highestBidder, uint256 highestBid);
   event Finalized();
@@ -39,6 +40,7 @@ contract Auction is Ownable, IERC721Receiver, Pausable, ReentrancyGuard {
     require(block.timestamp >= startTime, 'auction_not_started');
     require(block.timestamp < endTime, 'auction_has_ended');
     require(!isFinalized, 'auction_has_been_finalized');
+    require(!isCancelled, 'auction_has_been_cancelled');
 
     if (highestBid == 0) {
       require(amount >= startPrice, 'must_be_greater_than_or_equal_to_start_price');
@@ -76,6 +78,7 @@ contract Auction is Ownable, IERC721Receiver, Pausable, ReentrancyGuard {
   }
 
   function bidEther() external payable nonReentrant requirementsBeforeBid(msg.value) whenNotPaused {
+    require(bidAsset == address(0), 'ether_bids_not_supported');
     if (highestBidder != address(0)) {
       TransferHelpers._safeTransferEther(highestBidder, highestBid);
     }
@@ -86,7 +89,7 @@ contract Auction is Ownable, IERC721Receiver, Pausable, ReentrancyGuard {
   }
 
   function bidERC20(uint256 amount) external nonReentrant requirementsBeforeBid(amount) whenNotPaused {
-    require(bidAsset != address(0) && bidAsset.isContract(), 'erc20_bids_not_supported_by_this_auction');
+    require(bidAsset.isContract(), 'erc20_bids_not_supported_by_this_auction');
     if (highestBidder != address(0)) TransferHelpers._safeTransferERC20(bidAsset, highestBidder, highestBid);
 
     require(IERC20(bidAsset).allowance(_msgSender(), address(this)) >= amount, 'not_enough_allowance');
@@ -99,13 +102,32 @@ contract Auction is Ownable, IERC721Receiver, Pausable, ReentrancyGuard {
   function cancelBid() external nonReentrant {
     require(_msgSender() == highestBidder, 'must_be_highest_bidder');
     require(!isFinalized, 'already_finalized');
-    TransferHelpers._safeTransferERC20(bidAsset, _msgSender(), highestBid);
+
+    if (bidAsset.isContract()) {
+      TransferHelpers._safeTransferERC20(bidAsset, _msgSender(), highestBid);
+    } else {
+      TransferHelpers._safeTransferEther(_msgSender(), highestBid);
+    }
+
     highestBidder = address(0);
     emit Bid(highestBidder, highestBid);
   }
 
+  function cancelAuction() external nonReentrant whenNotPaused onlyOwner {
+    require(!isFinalized, 'already_finalized');
+    if (highestBidder != address(0)) {
+      if (bidAsset.isContract()) {
+        TransferHelpers._safeTransferERC20(bidAsset, highestBidder, highestBid);
+      } else {
+        TransferHelpers._safeTransferEther(highestBidder, highestBid);
+      }
+    }
+    isCancelled = true;
+  }
+
   function finalizeAuction() external nonReentrant whenNotPaused onlyOwner {
     require(!isFinalized, 'already_finalized');
+    require(!isCancelled, 'already_cancelled');
     require(block.timestamp >= endTime, 'cannot_finalize_auction_before_end_time');
     require(highestBidder != address(0), 'highest_bidder_is_zero_address');
     uint256 bal = bidAsset.isContract() && bidAsset != address(0) ? IERC20(bidAsset).balanceOf(address(this)) : address(this).balance;
@@ -138,5 +160,13 @@ contract Auction is Ownable, IERC721Receiver, Pausable, ReentrancyGuard {
     bytes memory
   ) public virtual override returns (bytes4) {
     return this.onERC721Received.selector;
+  }
+
+  function pause() external onlyOwner {
+    _pause();
+  }
+
+  function unpause() external onlyOwner {
+    _unpause();
   }
 }
